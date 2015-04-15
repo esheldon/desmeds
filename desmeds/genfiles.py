@@ -5,6 +5,8 @@ import numpy
 import desdb
 import fitsio
 
+from . import files
+
 _wq_template="""
 command: |
     source ~/.bashrc
