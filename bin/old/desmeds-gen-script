@@ -1,0 +1,295 @@
+#!/usr/bin/env python
+"""
+    %prog [options] medsconf coadd_run band
+
+Generate shell script to run make-meds-input and make-cutouts, as well
+as the id file holding the coadd_objects_id
+
+meds_config is a meds config id, e.g. meds001
+"""
+
+import os,sys
+from sys import stderr
+import deswl
+import desdb
+
+from optparse import OptionParser
+parser = OptionParser(__doc__)
+
+parser.add_option('--vers',default='work',
+                  help="Code version, default %default")
+parser.add_option('--catalog',default=None,
+                  help="Use this catalog instead of the coadd catalog for the tile")
+
+
+
+_template="""#!/bin/bash
+# we write stdout from make-meds-input to the meds_input file; log messages
+# go to stderr
+#
+# make-cutouts only writes to stderr
+#
+# the exit status from those programs (the last to run) is written to the
+# meds_status file and becomes the exit status of this program.
+#
+# there should be no stdout from this script, only stderr
+#
+# in production this script is called by a pbs submit script and the
+# stderr is written to a log file (meds_log)
+
+#nsetup_ess
+module unload shapelets && module load shapelets/{vers}
+
+magzp_ref={magzp_ref}
+coadd_file="{coadd_image}"
+coadd_image_id="{coadd_image_id}"
+coaddseg_file="{coadd_seg}"
+coadd_seg_hdu={coadd_seg_hdu}
+coaddcat_file="{coadd_cat}"
+coadd_objects_id_file="{coadd_objects_id_file}"
+coadd_srclist="{meds_srclist}"
+cutout_file="{meds_file}"
+meds_input="{meds_input}"
+medsconf={medsconf}
+meds_status="{meds_status}"
+
+min_boxsize={min_boxsize}
+max_boxsize={max_boxsize}
+use_alt_wcs={use_alt_wcs}
+se_wcs_hdu={se_wcs_hdu}
+
+# temporary directory and filenames
+cutout_file_bname=$(basename $cutout_file)
+
+db=$(echo $cutout_file_bname | sed 's/\.fits\.fz//')
+tmpdir="/data/esheldon/tmp/meds-tmp-$db-$RANDOM"
+mkdir -p "$tmpdir"
+
+tmpfile_fz="$tmpdir/$cutout_file_bname"
+tmpfile_uc=$(echo $tmpfile_fz | sed 's/\.fz//')
+
+echo "tmp file fz: $tmpfile_fz"
+echo "tmp file uc: $tmpfile_uc"
+
+
+# make final output directory
+output_dir=$(dirname "$cutout_file")
+mkdir -p "$output_dir"
+
+# remove existing file
+if [[ -e "$cutout_file" ]]; then
+    rm -v "$cutout_file"
+fi
+
+echo "creating meds input $meds_input"
+make-meds-input "$coaddcat_file" $min_boxsize $max_boxsize $coadd_objects_id_file > "$meds_input"
+
+exit_status=$?
+if [[ $exit_status == "0" ]]; then
+
+    # keywords after cutout_file= are just extra medatdata to be written into
+    # the metadata table; they are not used by the code
+
+    cmd="
+    make-cutouts
+        magzp_ref=$magzp_ref
+        coadd_file=$coadd_file
+        coadd_image_id=$coadd_image_id
+        coaddseg_file=$coaddseg_file
+        coadd_seg_hdu=$coadd_seg_hdu
+        cat_file=$meds_input
+        coadd_srclist=$coadd_srclist
+        cutout_file=$tmpfile_uc
+        medsconf=$medsconf
+        coaddcat_file=$coaddcat_file
+        min_boxsize=$min_boxsize
+        max_boxsize=$max_boxsize
+        use_alt_wcs=$use_alt_wcs
+        se_wcs_hdu=$se_wcs_hdu
+    "
+
+    $cmd
+
+    exit_status=$?
+    if [[ $exit_status == "0" ]]; then
+        size=$(du -h "$tmpfile_uc" | awk '{{print $1}}')
+        echo "size of uncompressed file: $size"
+        echo "fpacking to $tmpfile_fz"
+        fpack -t {fpack_dim0},{fpack_dim1} "$tmpfile_uc" 
+
+        ok="yes"
+        exit_status=$?
+        if [[ $exit_status == "0" ]]; then
+            if [[ ! -e "$tmpfile_fz" ]]; then
+                ok="no"
+                echo "compressed cutout file not made $tmpfile_fz"
+                echo "copying uncompressed file $tmpfile_uc"
+                exit_status=1
+            fi
+        fi
+
+        if [[ $ok == "yes" ]]; then
+            cp -v "$tmpfile_fz" "$output_dir/"
+        else
+            cp -v "$tmpfile_uc" "$output_dir/"
+        fi
+    fi
+fi
+
+echo "cleaning up tmpdir: $tmpdir"
+rm -rf $tmpdir
+
+mess="writing status $exit_status to meds_status:
+    $meds_status"
+echo $mess
+
+echo "exit_status: $exit_status" > "$meds_status"
+
+echo "time: $SECONDS"
+exit $exit_status
+"""
+
+
+def make_dirs(script_file, meds_file):
+    d=os.path.dirname(script_file)
+    if not os.path.exists(d):
+        print 'making dir:',d
+        try:
+            os.makedirs(d)
+        except:
+            pass
+    d=os.path.dirname(meds_file)
+    if not os.path.exists(d):
+        print 'making dir:',d
+        try:
+            os.makedirs(d)
+        except:
+            pass
+
+def check_fz(name):
+    if not os.path.exists(name):
+        is_fz=False
+        name=name.replace('.fits.fz','.fits')
+        if not os.path.exists(name):
+            raise ValueError("fits file missing: %s{.fz}" % name)
+    else:
+        is_fz=True
+
+    return name, is_fz
+
+def main():
+
+    options, args = parser.parse_args(sys.argv[1:])
+    if len(args) < 3:
+        parser.print_help()
+        sys.exit(45)
+
+    medsconf=args[0]
+    coadd_run=args[1]
+    band=args[2]
+
+    conf=deswl.files.read_meds_config(medsconf)
+    if 'astro_rerun_file' in conf:
+        use_alt_wcs=1
+    else:
+        use_alt_wcs=0
+
+    df=desdb.files.DESFiles()
+    cf=desdb.files.Coadd(coadd_run=coadd_run, band=band)
+    cf.load()
+
+    detband=conf['detband']
+
+    if 'magzp_ref' in conf:
+        magzp_ref = conf['magzp_ref']
+        print 'using fixed magzp_ref',magzp_ref
+    else:
+        magzp_ref = desdb.files.get_release_magzp_ref(conf['release'], band)
+
+    coadd_image=df.url(type='coadd_image',
+                       coadd_run=coadd_run,
+                       tilename=cf['tilename'],
+                       band=band)
+
+    coadd_seg=df.url(type='coadd_seg',
+                     coadd_run=coadd_run,
+                     tilename=cf['tilename'],
+                     band=band)
+    
+    coadd_seg, is_fz =check_fz(coadd_seg)
+    if is_fz:
+        coadd_seg_hdu=2
+    else:
+        coadd_seg_hdu=1
+
+    if options.catalog is not None:
+        coadd_cat=options.catalog
+    else:
+        coadd_cat=df.url(type='coadd_cat',
+                         coadd_run=coadd_run,
+                         tilename=cf['tilename'],
+                         band=detband)
+
+    meds_srclist=df.url(medsconf=medsconf,
+                        type='meds_srclist',
+                        coadd_run=coadd_run,
+                        tilename=cf['tilename'],
+                        band=band)
+    meds_input=df.url(medsconf=medsconf,
+                      type='meds_input',
+                      coadd_run=coadd_run,
+                      tilename=cf['tilename'],
+                      band=band)
+    coadd_objects_id_file=df.url(medsconf=medsconf,
+                                 type='meds_coadd_objects_id',
+                                 coadd_run=coadd_run,
+                                 tilename=cf['tilename'],
+                                 band=band)
+
+    meds_file=df.url(medsconf=medsconf,
+                     type='meds',
+                     coadd_run=coadd_run,
+                     tilename=cf['tilename'],
+                     band=band)
+    #meds_file_uc = meds_file_fz.replace('.fz','')
+    meds_status=df.url(medsconf=medsconf,
+                       type='meds_status',
+                       coadd_run=coadd_run,
+                       tilename=cf['tilename'],
+                       band=band)
+
+
+    text=_template.format(medsconf=medsconf,
+                          magzp_ref=magzp_ref,
+                          vers=options.vers,
+                          coadd_image=coadd_image,
+                          coadd_image_id=cf['image_id'],
+                          coadd_seg=coadd_seg,
+                          coadd_seg_hdu=coadd_seg_hdu,
+                          coadd_cat=coadd_cat,
+                          meds_input=meds_input,
+                          coadd_objects_id_file=coadd_objects_id_file,
+                          meds_srclist=meds_srclist,
+                          min_boxsize=conf['min_boxsize'],
+                          max_boxsize=conf['max_boxsize'],
+                          meds_file=meds_file,
+                          meds_status=meds_status,
+                          fpack_dim0=conf['fpack_dims'][0],
+                          fpack_dim1=conf['fpack_dims'][1],
+                          use_alt_wcs=use_alt_wcs,
+                          se_wcs_hdu=1)
+
+    script_file=df.url(medsconf=medsconf,
+                       type='meds_script',
+                       coadd_run=coadd_run,
+                       tilename=cf['tilename'],
+                       band=band)
+
+    make_dirs(script_file, meds_file)
+    
+    print script_file
+    with open(script_file,'w') as fobj:
+        fobj.write(text)
+
+main()
+
