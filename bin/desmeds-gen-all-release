@@ -10,8 +10,8 @@ medsconf is a meds config id, e.g. 013
 
 from __future__ import print_function
 import os,sys
-import deswl
 import desdb
+import desmeds
 
 
 
@@ -31,48 +31,8 @@ parser.add_option('-c','--check',action='store_true',
 parser.add_option('--vers',default='work',
                   help="Code version, default %default")
 
-parser.add_option('--testbed',action='store_true',
-                  help="only write tiles in the testbed")
-
-
 _df=desdb.DESFiles()
 
-def cut_blacklist(release, runs):
-    nr=len(runs)
-
-    blacklist = deswl.files.get_coadd_blacklist(release)
-
-    runs_new=[]
-    for run in runs:
-        found=False
-        for tile in blacklist:
-            if tile in run:
-                found=True
-
-        if not found:
-            runs_new.append(run)
-
-    nr_new=len(runs_new)
-    print('black listed %d/%d' % (nr-nr_new, nr))
-    return runs_new
-
-def check_against_testbed(tiles, run):
-    keep=False
-    for tile in tiles:
-        if tile in run:
-            keep=True
-            break
-    return keep
-
-def extract_testbed_runs(runs):
-    tiles=deswl.desmeds.testbed.tiles
-
-    keep_runs=[]
-    for run in runs:
-        if check_against_testbed(tiles, run):
-            keep_runs.append(run)
-
-    return keep_runs
 
 def stats_exist(medsconf, coadd_run, band):
     """
@@ -95,9 +55,9 @@ def main():
         sys.exit(45)
 
     medsconf=args[0]
-    gen=deswl.desmeds.Generator(medsconf,
-                                check=options.check,
-                                version=options.vers)
+    gen=desmeds.Generator(medsconf,
+                          check=options.check,
+                          version=options.vers)
 
     # try to make meds files for all the 'bands', but only
     # for tiles 'withbands'
@@ -111,26 +71,18 @@ def main():
     else:
         bands=conf['bands']
     
-    withbands=conf['withbands']
-
-    # can be a list
-    release=conf['release']
-
     print("making meds for bands:",bands)
-    print('getting runs with bands:', withbands)
-    coadd_runs=desdb.files.get_release_runs(release, withbands=withbands)
+    print("requiring withbands:",conf['withbands'])
 
-    print("found",len(coadd_runs),"runs")
-
-    if options.testbed:
-        truns = extract_testbed_runs(coadd_runs)
-        print("kept %d/%d from testbed" % (len(truns),len(coadd_runs)))
-        coadd_runs=truns
-
-    #runs=cut_blacklist(release, runs)
-    print("not checking blacklist")
-    
+    if 'testbed' in conf:
+        coadd_runs = desmeds.files.get_testbed_runs(conf['testbed'],
+                                                    withbands=conf['withbands'])
+    else:
+        coadd_runs = desdb.files.get_release_runs(conf['release'],
+                                                  withbands=conf['withbands'])
     nruns=len(coadd_runs)
+    print("found",nruns,"runs")
+    
     ntot = nruns*len(bands)
 
     itot=0
