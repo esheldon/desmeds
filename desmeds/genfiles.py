@@ -159,8 +159,6 @@ def get_magzp_offset(conf):
     """
     For SVA1 an artificial offset was added to the zeropoints
     in the zeropoint table.
-
-    Still need to check if these are in the coadd_src table
     """
     
     if release_is_sva1(conf['release']):
