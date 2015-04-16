@@ -1,4 +1,7 @@
+from __future__ import print_function
+import os
 import desdb
+import yaml
 
 def get_config_dir():
     """
@@ -35,7 +38,6 @@ def read_meds_config(medsconf):
     medsconf: string
         Identifier for the meds config, e.g. "013"
     """
-    import yaml
     fname=get_meds_config_file(medsconf)
 
     print("reading:",fname)
@@ -99,5 +101,5 @@ def get_testbed_runs(testbed, withbands=None):
                 runs.append(run)
                 continue
 
-    print "kept %d/%d runs" % (len(runs), len(allruns))
+    print("kept %d/%d runs" % (len(runs), len(allruns)))
     return runs
