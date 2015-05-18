@@ -189,9 +189,11 @@ class Generator(object):
         self.coadd_run=coadd_run
         self.band=band
 
+        print("loading coadd info and srclist")
         self.cf=desdb.files.Coadd(coadd_run=coadd_run,
                                   band=band,
                                   conn=self.conn)
+            
         self.cf.load(srclist=True)
 
         self.set_srclist()
@@ -473,13 +475,21 @@ class Generator(object):
 
         add_bigind(srclist)
 
+        self.include_wcs=False
         if 'astro_rerun_file' in self.conf:
             self.include_wcs=True
+            self.wcs_type='astro_rerun'
             srclist=match_to_astro_rerun(srclist,
                                          self.conf,
                                          self.cf['tilename'])
-        else:
-            self.include_wcs=False
+        elif 'use_astro_refine' in self.conf:
+            if self.conf['use_astro_refine']:
+                self.include_wcs=True
+                self.wcs_type='astro_refine'
+
+                # convert head files to fits files and save wcs_file in
+                # the srclist
+                convert_astro_refine(self.cf['coadd_run'],srclist)
 
         add_blacklist_flags(srclist)
 
@@ -495,7 +505,33 @@ class Generator(object):
 
         return nmissing
 
+def convert_astro_refine(coadd_run, srclist):
+    df=desdb.files.DESFiles()
 
+    outdir=df.dir('astro_refine_fits',coadd_run=coadd_run)
+    if not os.path.exists(outdir):
+        try:
+            print("making dir:",outdir)
+            os.makedirs(outdir)
+        except:
+            pass
+    
+    for s in srclist:
+        head_file=s['astro_refine']
+        fits_file=df.url('astro_refine_fits',
+                         coadd_run=coadd_run,
+                         expname=s['expname'],
+                         ccd=s['ccd'])
+
+        s['wcs_file'] = fits_file
+
+        print("reading:",head_file)
+        hdata = fitsio.read_scamp_head(head_file)
+
+        print("writing:",fits_file)
+        fitsio.write(fits_file, None, header=hdata, clobber=True)
+
+        
 def match_to_astro_rerun(srclist, conf, tilename):
     """
     So the ASTROM_FLAG has the following bits set.  Good ones have ASTROM_FLAG == 0.  The flags mean:
@@ -515,7 +551,6 @@ def match_to_astro_rerun(srclist, conf, tilename):
     out images with the higher flags, but I leave this up to you.  These are
     probably bad images anyway.  And many of them are at the boundary.
     """
-    import fitsio
     import esutil as eu
     from esutil.numpy_util import ahelp
     from pprint import pprint
@@ -545,7 +580,7 @@ def match_to_astro_rerun(srclist, conf, tilename):
         sbigind=s['bigind']
         mdata=mdict.get(sbigind,None)
         if mdata is not None:
-            wcs_file=get_wcs_file(s)
+            wcs_file=get_wcs_file_old(s)
             flags=mdata['astrom_flag']
             if (flags & remove) != 0:
                 print("skipping bad:",s['expname'],s['ccd'])
@@ -616,7 +651,7 @@ def get_exp_blacklists():
 
     return ldict
 
-def get_wcs_file(sdict):
+def get_wcs_file_old(sdict):
     subdirs=['EXTRA',
              'red',
              sdict['run'],
