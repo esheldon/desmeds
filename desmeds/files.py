@@ -87,8 +87,10 @@ def get_testbed_runs(testbed, withbands=None):
     """
     import desdb
 
+
     data=read_testbed_config(testbed)
 
+    print("getting runs for testbed:",testbed)
     allruns=desdb.files.get_release_runs(data['release'],
                                          withbands=withbands)
 

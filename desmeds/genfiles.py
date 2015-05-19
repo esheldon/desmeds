@@ -487,9 +487,9 @@ class Generator(object):
                 self.include_wcs=True
                 self.wcs_type='astro_refine'
 
-                # convert head files to fits files and save wcs_file in
-                # the srclist
-                convert_astro_refine(self.cf['coadd_run'],srclist)
+                # set wcs_file in the srclist (the fits version of .head)
+                # convert head files to fits files if needed
+                set_astro_refine(self.cf['coadd_run'],srclist)
 
         add_blacklist_flags(srclist)
 
@@ -505,7 +505,7 @@ class Generator(object):
 
         return nmissing
 
-def convert_astro_refine(coadd_run, srclist):
+def set_astro_refine(coadd_run, srclist):
     df=desdb.files.DESFiles()
 
     outdir=df.dir('astro_refine_fits',coadd_run=coadd_run)
@@ -522,16 +522,17 @@ def convert_astro_refine(coadd_run, srclist):
                          coadd_run=coadd_run,
                          expname=s['expname'],
                          ccd=s['ccd'])
-
         s['wcs_file'] = fits_file
 
-        print("reading:",head_file)
-        hdata = fitsio.read_scamp_head(head_file)
+        if not os.path.exists(fits_file):
 
-        print("writing:",fits_file)
-        fitsio.write(fits_file, None, header=hdata, clobber=True)
+            print("reading:",head_file)
+            hdata = fitsio.read_scamp_head(head_file)
 
-        
+            print("writing:",fits_file)
+            fitsio.write(fits_file, None, header=hdata, clobber=True)
+
+            
 def match_to_astro_rerun(srclist, conf, tilename):
     """
     So the ASTROM_FLAG has the following bits set.  Good ones have ASTROM_FLAG == 0.  The flags mean:
