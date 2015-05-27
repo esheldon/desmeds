@@ -56,7 +56,7 @@ se_wcs_hdu={se_wcs_hdu}
 cutout_file_bname=$(basename $cutout_file)
 
 db=$(echo $cutout_file_bname | sed 's/\.fits\.fz//')
-tmpdir="/data/esheldon/tmp/meds-tmp-$db-$RANDOM"
+tmpdir="$TMPDIR/meds-tmp-$db-$RANDOM"
 mkdir -p "$tmpdir"
 
 tmpfile_fz="$tmpdir/$cutout_file_bname"
