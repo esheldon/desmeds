@@ -12,6 +12,7 @@ from __future__ import print_function
 import os,sys
 import desdb
 import desmeds
+from desmeds import files
 
 
 
@@ -41,11 +42,12 @@ def stats_exist(medsconf, coadd_run, band):
 
     tilename=coadd_run.split('_')[1]
 
-    stats_path=_df.url(medsconf=medsconf,
-                       type='meds_stats',
-                       coadd_run=coadd_run,
-                       tilename=tilename,
-                       band=band)
+    stats_path = files.get_meds_stats_file(medsconf,
+                                           coadd_run,
+                                           tilename,
+                                           band)
+
+
     return os.path.exists(stats_path)
 
 def main():
@@ -102,11 +104,10 @@ def main():
                                    coadd_run=coadd_run,
                                    tilename=tilename,
                                    band=band)
-            meds_file=_df.url(medsconf=medsconf,
-                              type='meds',
-                              coadd_run=coadd_run,
-                              tilename=tilename,
-                              band=band)
+            meds_file = files.get_meds_file(medsconf,
+                                            coadd_run,
+                                            tilename,
+                                            band)
 
             if options.missing and os.path.exists(meds_file):
                 print("skipping because meds file already exists")

@@ -219,12 +219,10 @@ class Generator(object):
         write stats about the inputs
         """
         import yaml
-        stats_path=self.df.url(medsconf=self.medsconf,
-                               type='meds_stats',
-                               coadd_run=self.coadd_run,
-                               tilename=self.cf['tilename'],
-                               band=self.band)
-
+        stats_path = files.get_meds_stats_file(self.medsconf,
+                                               self.coadd_run,
+                                               self.cf['tilename'],
+                                               self.band)
 
         make_dirs(stats_path)
         stats={'nsource':len(self.srclist)}
@@ -235,11 +233,11 @@ class Generator(object):
         """
         write the source list file
         """
-        srclist_path=self.df.url(medsconf=self.medsconf,
-                                 type='meds_srclist',
-                                 coadd_run=self.coadd_run,
-                                 tilename=self.cf['tilename'],
-                                 band=self.band)
+
+        srclist_path = files.get_meds_srclist_file(self.medsconf,
+                                                   self.coadd_run,
+                                                   self.cf['tilename'],
+                                                   self.band)
 
         make_dirs(srclist_path)
 
@@ -267,18 +265,14 @@ class Generator(object):
         """
         write the wq script
         """
-        script_file=self.df.url(medsconf=self.medsconf,
-                                type='meds_script',
-                                coadd_run=self.coadd_run,
-                                tilename=self.cf['tilename'],
-                                band=self.band)
 
-        wq_file=self.df.url(medsconf=self.medsconf,
-                            type='meds_wq',
-                            coadd_run=self.coadd_run,
-                            tilename=self.cf['tilename'],
-                            band=self.band)
+        script_file = files.get_meds_script_file(self.medsconf,
+                                                 self.cf['tilename'],
+                                                 self.band)
 
+        wq_file = files.get_meds_wq_file(self.medsconf,
+                                         self.cf['tilename'],
+                                         self.band)
 
         job_name='%s-%s' % (self.cf['tilename'],self.band)
         
@@ -309,12 +303,10 @@ class Generator(object):
         coadd_cat_file=self.get_coadd_cat_file(detband)
 
         # 1-column ascii file holding the coadd_objects_id
-        coadd_objects_id_file=self.df.url(medsconf=self.medsconf,
-                                          type='meds_coadd_objects_id',
-                                          coadd_run=self.coadd_run,
-                                          tilename=self.cf['tilename'],
-                                          band=self.band)
-
+        cid_file = files.get_meds_coadd_objects_id_file(self.medsconf,
+                                                        self.coadd_run,
+                                                        self.cf['tilename'],
+                                                        self.band)
 
         coadd_info = self.get_coadd_object_info()
 
@@ -324,10 +316,10 @@ class Generator(object):
         print("verifying")
         verify_coadd_ids(coadd_info, coadd_cat)
 
-        make_dirs(coadd_objects_id_file)
+        make_dirs(cid_file)
 
-        print("writing:",coadd_objects_id_file)
-        with open(coadd_objects_id_file,'w') as fobj:
+        print("writing:",cid_file)
+        with open(cid_file,'w') as fobj:
             for i in xrange(coadd_info.size):
                 fobj.write("%s\n" % coadd_info['coadd_objects_id'][i])
 
@@ -380,33 +372,30 @@ class Generator(object):
                          tilename=cf['tilename'],
                          band=detband)
 
-        meds_srclist=df.url(medsconf=medsconf,
-                            type='meds_srclist',
-                            coadd_run=coadd_run,
-                            tilename=cf['tilename'],
-                            band=band)
-        meds_input=df.url(medsconf=medsconf,
-                          type='meds_input',
-                          coadd_run=coadd_run,
-                          tilename=cf['tilename'],
-                          band=band)
-        coadd_objects_id_file=df.url(medsconf=medsconf,
-                                     type='meds_coadd_objects_id',
-                                     coadd_run=coadd_run,
-                                     tilename=cf['tilename'],
-                                     band=band)
+        meds_srclist = files.get_meds_srclist_file(self.medsconf,
+                                                   self.coadd_run,
+                                                   self.cf['tilename'],
+                                                   self.band)
+        meds_input = files.get_meds_input_file(self.medsconf,
+                                                 self.coadd_run,
+                                                 self.cf['tilename'],
+                                                 self.band)
 
-        meds_file=df.url(medsconf=medsconf,
-                         type='meds',
-                         coadd_run=coadd_run,
-                         tilename=cf['tilename'],
-                         band=band)
-        #meds_file_uc = meds_file_fz.replace('.fz','')
-        meds_status=df.url(medsconf=medsconf,
-                           type='meds_status',
-                           coadd_run=coadd_run,
-                           tilename=cf['tilename'],
-                           band=band)
+        cid_file = files.get_meds_coadd_objects_id_file(self.medsconf,
+                                                        self.coadd_run,
+                                                        self.cf['tilename'],
+                                                        self.band)
+        meds_file = files.get_meds_file(self.medsconf,
+                                        self.coadd_run,
+                                        self.cf['tilename'],
+                                        self.band)
+        meds_status = files.get_meds_status_file(self.medsconf,
+                                                 self.coadd_run,
+                                                 self.cf['tilename'],
+                                                 self.band)
+        script_file = files.get_meds_script_file(self.medsconf,
+                                                 self.cf['tilename'],
+                                                 self.band)
 
 
         text=_script_template.format(medsconf=medsconf,
@@ -418,7 +407,7 @@ class Generator(object):
                                      coadd_seg_hdu=coadd_seg_hdu,
                                      coadd_cat=coadd_cat,
                                      meds_input=meds_input,
-                                     coadd_objects_id_file=coadd_objects_id_file,
+                                     coadd_objects_id_file=cid_file,
                                      meds_srclist=meds_srclist,
                                      min_boxsize=conf['min_boxsize'],
                                      max_boxsize=conf['max_boxsize'],
@@ -429,11 +418,6 @@ class Generator(object):
                                      use_alt_wcs=use_alt_wcs,
                                      se_wcs_hdu=se_wcs_hdu)
 
-        script_file=df.url(medsconf=medsconf,
-                           type='meds_script',
-                           coadd_run=coadd_run,
-                           tilename=cf['tilename'],
-                           band=band)
 
         make_dirs(script_file, meds_file)
         
