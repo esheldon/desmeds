@@ -2,12 +2,13 @@
 """
     %prog [options] medsconf coadd_run band
 
-Generate the inputs and batch scripts for the specified coadd run and band
+Generate the stubby meds, which holds the input data for the MEDSMaker
 """
 from __future__ import print_function
 import sys
 import os
 import desmeds
+
 
 from argparse import ArgumentParser
 parser=ArgumentParser()
@@ -15,15 +16,16 @@ parser=ArgumentParser()
 parser.add_argument('medsconf',help='DES MEDS configuration identifier')
 parser.add_argument('coadd_run',help='DES coadd run identifier (pre y2)')
 parser.add_argument('band',help='bandpass')
-parser.add_argument('-c','--check',action='store_true',
-                    help="check that files exist")
 
 def main():
     args=parser.parse_args()
 
-    generator = desmeds.batch.Generator(args.medsconf, check=args.check)
-    generator.load_coadd(args.coadd_run, args.band)
-    generator.write_all()
+    maker = desmeds.DESMEDSMaker(args.medsconf,
+                                 args.coadd_run,
+                                 args.band,
+                                 do_inputs=True,
+                                 do_meds=False)
+    maker.go()
 
 main()
 

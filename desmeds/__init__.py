@@ -5,7 +5,4 @@ from . import files
 from . import util
 from . import blacklists
 from . import defaults
-
-
-from . import genfiles
-from .genfiles import Generator
+from . import batch

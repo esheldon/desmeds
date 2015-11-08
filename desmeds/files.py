@@ -159,18 +159,16 @@ def get_meds_script_dir(meds_vers):
 # file paths
 #
 
-def get_stubby_meds_file(coadd_run,band,medsconf):
+def coadd_run_to_tilename(coadd_run):
     """
-    a temporary file to hold the inputs to a MEDSMaker
+    pre-y2 runs were {date}_{tilename}
     """
-    dr = get_meds_dir(coadd_run,band,medsconf)
     tilename = coadd_run.split('_')[-1]
-    return os.path.join(dr,'%s-%s-stubby-meds-%s.fits' % (tilename,band,medsconf))
+    return tilename
 
-
-def get_meds_file(meds_vers, coadd_run, tilename, band, ext='fits.fz'):
+def get_meds_file(meds_vers, coadd_run, band, ext='fits.fz'):
     """
-    get the meds file for the input coadd run, tilename, band
+    get the meds file for the input coadd run, band
 
     parameters
     ----------
@@ -179,12 +177,11 @@ def get_meds_file(meds_vers, coadd_run, tilename, band, ext='fits.fz'):
         or 'y1a1-v01'
     coadd_run: string
         For SV and Y1, e.g. '20130828000021_DES0417-5914'
-    tilename: string
-        e.g. 'DES0417-5914'
     band: string
         e.g. 'i'
     """
 
+    tilename=coadd_run_to_tilename(coadd_run)
     type='meds'
     return get_meds_datafile_generic(meds_vers,
                                      coadd_run,
@@ -193,7 +190,7 @@ def get_meds_file(meds_vers, coadd_run, tilename, band, ext='fits.fz'):
                                      type,
                                      ext)
 
-def get_meds_stubby_file(meds_vers, coadd_run, tilename, band):
+def get_meds_stubby_file(meds_vers, coadd_run, band):
     """
     get the stubby meds file, holding inputs for the MEDSMaker
 
@@ -204,12 +201,11 @@ def get_meds_stubby_file(meds_vers, coadd_run, tilename, band):
         or 'y1a1-v01'
     coadd_run: string
         For SV and Y1, e.g. '20130828000021_DES0417-5914'
-    tilename: string
-        e.g. 'DES0417-5914'
     band: string
         e.g. 'i'
     """
 
+    tilename=coadd_run_to_tilename(coadd_run)
     type='meds-stubby'
     ext='fits'
     return get_meds_datafile_generic(meds_vers,
@@ -219,9 +215,9 @@ def get_meds_stubby_file(meds_vers, coadd_run, tilename, band):
                                      type,
                                      ext)
 
-def get_meds_stats_file(meds_vers, coadd_run, tilename, band):
+def get_meds_stats_file(meds_vers, coadd_run, band):
     """
-    get the meds stats file for the input coadd run, tilename, band
+    get the meds stats file for the input coadd run, band
 
     parameters
     ----------
@@ -230,12 +226,11 @@ def get_meds_stats_file(meds_vers, coadd_run, tilename, band):
         or 'y1a1-v01'
     coadd_run: string
         For SV and Y1, e.g. '20130828000021_DES0417-5914'
-    tilename: string
-        e.g. 'DES0417-5914'
     band: string
         e.g. 'i'
     """
 
+    tilename=coadd_run_to_tilename(coadd_run)
     type='meds-stats'
     ext='yaml'
     return get_meds_datafile_generic(meds_vers,
@@ -245,9 +240,9 @@ def get_meds_stats_file(meds_vers, coadd_run, tilename, band):
                                      type,
                                      ext)
 
-def get_meds_status_file(meds_vers, coadd_run, tilename, band):
+def get_meds_status_file(meds_vers, coadd_run, band):
     """
-    get the meds status file for the input coadd run, tilename, band
+    get the meds status file for the input coadd run, band
 
     parameters
     ----------
@@ -256,12 +251,11 @@ def get_meds_status_file(meds_vers, coadd_run, tilename, band):
         or 'y1a1-v01'
     coadd_run: string
         For SV and Y1, e.g. '20130828000021_DES0417-5914'
-    tilename: string
-        e.g. 'DES0417-5914'
     band: string
         e.g. 'i'
     """
 
+    tilename=coadd_run_to_tilename(coadd_run)
     type='meds-status'
     ext='yaml'
     return get_meds_datafile_generic(meds_vers,
@@ -272,9 +266,9 @@ def get_meds_status_file(meds_vers, coadd_run, tilename, band):
                                      ext)
 
 
-def get_meds_srclist_file(meds_vers, coadd_run, tilename, band):
+def get_meds_srclist_file(meds_vers, coadd_run, band):
     """
-    get the meds source list file for the input coadd run, tilename, band
+    get the meds source list file for the input coadd run, band
 
     parameters
     ----------
@@ -283,12 +277,11 @@ def get_meds_srclist_file(meds_vers, coadd_run, tilename, band):
         or 'y1a1-v01'
     coadd_run: string
         For SV and Y1, e.g. '20130828000021_DES0417-5914'
-    tilename: string
-        e.g. 'DES0417-5914'
     band: string
         e.g. 'i'
     """
 
+    tilename=coadd_run_to_tilename(coadd_run)
     type='meds-srclist'
     ext='dat'
     return get_meds_datafile_generic(meds_vers,
@@ -298,9 +291,9 @@ def get_meds_srclist_file(meds_vers, coadd_run, tilename, band):
                                      type,
                                      ext)
 
-def get_meds_input_file(meds_vers, coadd_run, tilename, band):
+def get_meds_input_file(meds_vers, coadd_run, band):
     """
-    get the meds input catalog file for the input coadd run, tilename, band
+    get the meds input catalog file for the input coadd run, band
 
     parameters
     ----------
@@ -309,12 +302,11 @@ def get_meds_input_file(meds_vers, coadd_run, tilename, band):
         or 'y1a1-v01'
     coadd_run: string
         For SV and Y1, e.g. '20130828000021_DES0417-5914'
-    tilename: string
-        e.g. 'DES0417-5914'
     band: string
         e.g. 'i'
     """
 
+    tilename=coadd_run_to_tilename(coadd_run)
     type='meds-input'
     ext='dat'
     return get_meds_datafile_generic(meds_vers,
@@ -324,9 +316,9 @@ def get_meds_input_file(meds_vers, coadd_run, tilename, band):
                                      type,
                                      ext)
 
-def get_meds_coadd_objects_id_file(meds_vers, coadd_run, tilename, band):
+def get_meds_coadd_objects_id_file(meds_vers, coadd_run, band):
     """
-    get the coadd objects id file for the input coadd run, tilename, band
+    get the coadd objects id file for the input coadd run, band
 
     parameters
     ----------
@@ -335,12 +327,11 @@ def get_meds_coadd_objects_id_file(meds_vers, coadd_run, tilename, band):
         or 'y1a1-v01'
     coadd_run: string
         For SV and Y1, e.g. '20130828000021_DES0417-5914'
-    tilename: string
-        e.g. 'DES0417-5914'
     band: string
         e.g. 'i'
     """
 
+    tilename=coadd_run_to_tilename(coadd_run)
     type='meds-coadd-objects-id'
     ext='dat'
     return get_meds_datafile_generic(meds_vers,
@@ -386,24 +377,6 @@ def get_meds_datafile_generic(meds_vers, coadd_run, tilename, band, type, ext):
 
 
 
-def get_meds_script_file(meds_vers, tilename, band):
-    """
-    get the meds script maker file for the given tilename and band
-
-    parameters
-    ----------
-    meds_vers: string
-        A name for the meds version or config.  e.g. '013'
-        or 'y1a1-v01'
-    tilename: string
-        e.g. 'DES0417-5914'
-    band: string
-        e.g. 'i'
-    """
-
-    ext='sh'
-    return get_meds_script_file_generic(meds_vers, tilename, band, ext)
-
 def get_meds_wq_file(meds_vers, tilename, band):
     """
     get the meds wq script file for the given tilename and band
@@ -420,10 +393,31 @@ def get_meds_wq_file(meds_vers, tilename, band):
     """
 
     ext='yaml'
-    return get_meds_script_file_generic(meds_vers, tilename, band, ext)
+    type='make-meds'
+    return get_meds_script_file_generic(meds_vers, tilename, band, type, ext)
+
+def get_meds_stubby_wq_file(meds_vers, tilename, band):
+    """
+    get the stubby meds wq script file for the given tilename and band
+
+    parameters
+    ----------
+    meds_vers: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y1a1-v01'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    ext='yaml'
+    type='make-stubby'
+    return get_meds_script_file_generic(meds_vers, tilename, band, type, ext)
 
 
-def get_meds_script_file_generic(meds_vers, tilename, band, ext):
+
+def get_meds_script_file_generic(meds_vers, tilename, band, type, ext):
     """
     get the meds script maker file for the given tilename and band
 
@@ -433,13 +427,17 @@ def get_meds_script_file_generic(meds_vers, tilename, band, ext):
         e.g. 'DES0417-5914'
     band: string
         e.g. 'i'
+    type: string
+        any string
     ext: string
         extension, e.g. 'sh' 'yaml'
     """
     dir=get_meds_script_dir(meds_vers)
-    fname = '%(tilename)s-%(band)s-meds.%(ext)s'
+
+    fname = '%(tilename)s-%(band)s-%(type)s.%(ext)s'
     fname = fname % dict(tilename=tilename,
                          band=band,
+                         type=type,
                          ext=ext)
 
     return os.path.join(dir, fname)

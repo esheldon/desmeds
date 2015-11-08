@@ -49,8 +49,6 @@ class DESMEDSMaker(dict):
         Identifier for the coadd
     band: string
         Band for which to make the meds file
-    check: bool, optional
-        If True, check that all required files exist, default False
     do_inputs: bool, optional
         If True, write the stubby meds file holding the inputs for
         the MEDSMaker. Default True.
@@ -61,16 +59,12 @@ class DESMEDSMaker(dict):
                  medsconf,
                  coadd_run,
                  band,
-                 check=False,
                  do_inputs=True,
                  do_meds=True):
 
-        self.coadd_run = coadd_run
-        self.band = band
-
         self._load_config(medsconf)
 
-        self._set_extra_config()
+        self._set_extra_config(coadd_run, band)
 
         self.df = desdb.files.DESFiles()
 
@@ -78,9 +72,6 @@ class DESMEDSMaker(dict):
         self.do_meds = do_meds
 
         self.DESDATA = files.get_desdata()
-
-        if check:
-            raise NotImplementedError("implement file existence checking")
 
     def go(self):
         """
@@ -105,9 +96,9 @@ class DESMEDSMaker(dict):
         should already be the case)
         """
         fname=self.df.url(type='coadd_cat',
-                          coadd_run=self.coadd_run,
-                          band=self.band,
-                          tilename=self.tilename)
+                          coadd_run=self['coadd_run'],
+                          band=self['band'],
+                          tilename=self['tilename'])
         print('reading coadd cat:',fname)
         self.coadd_cat = fitsio.read(fname, lower=True)
 
@@ -122,12 +113,10 @@ class DESMEDSMaker(dict):
         """
         print('getting coadd info and source list')
         self.conn = desdb.Connection()
-        self.cf = desdb.files.Coadd(coadd_run=self.coadd_run,
-                                    band=self.band,
+        self.cf = desdb.files.Coadd(coadd_run=self['coadd_run'],
+                                    band=self['band'],
                                     conn=self.conn)
         self.cf.load(srclist=True)
-
-        self.tilename=self.cf['tilename']
 
     def _build_image_data(self):
         """
@@ -311,7 +300,7 @@ class DESMEDSMaker(dict):
         where
             COADD_OBJECTS.imageid_{band} = {id}
         """
-        qwry = qwry.format(band=self.band,id=self.cf['image_id'])
+        qwry = qwry.format(band=self['band'],id=self.cf['image_id'])
         return self.conn.quick(qwry,array=True)
 
     def _get_box_sizes(self):
@@ -415,6 +404,9 @@ class DESMEDSMaker(dict):
         stubby_path = self._get_stubby_path()
         print('writing stubby meds file:',stubby_path)
 
+        # fixme, for testing
+        #self.image_info = self.image_info[0:4]
+
         tmpdir = files.get_temp_dir()
         with StagedOutFile(stubby_path,tmpdir=tmpdir) as sf:
             with fitsio.FITS(sf.path,'rw',clobber=True) as f:
@@ -442,9 +434,8 @@ class DESMEDSMaker(dict):
         file to hold input to the MEDSMaker
         """
         stubby_path = files.get_meds_stubby_file(self['medsconf'],
-                                                 self.coadd_run,
-                                                 self.tilename,
-                                                 self.band)
+                                                 self['coadd_run'],
+                                                 self['band'])
         return stubby_path
 
     def _write_meds_file(self):
@@ -511,9 +502,8 @@ class DESMEDSMaker(dict):
                                "or 'compressed-final'")
 
         filename = files.get_meds_file(self['medsconf'],
-                                       self.coadd_run,
-                                       self.tilename,
-                                       self.band,
+                                       self['coadd_run'],
+                                       self['band'],
                                        ext=ext)
         if dir is not None:
             bname = basename(filename)
@@ -534,6 +524,25 @@ class DESMEDSMaker(dict):
                                  inverse=inverse)
         return pos
 
+    def _set_extra_config(self, coadd_run, band):
+        """
+        set extra configuration parameters that are not user-controlled
+        """
+
+        self['coadd_run'] = coadd_run
+        self['band'] = band
+        self['tilename']=files.coadd_run_to_tilename(coadd_run)
+
+        self['extra_obj_data_fields'] = [
+            ('number','i8'),
+            ('input_row','f8'),
+            ('input_col','f8'),
+        ]
+
+        # for converting fwhm and sigma for a gaussian
+        self['fpack_command'] = \
+            'fpack -t %d,%d {fname}' % tuple(self['fpack_dims'])
+
     def _load_config(self, medsconf):
         """
         load the default config, then load the input config
@@ -551,23 +560,3 @@ class DESMEDSMaker(dict):
 
         self.update(conf)
 
-
-    def _set_extra_config(self):
-        """
-        set extra configuration parameters
-        """
-
-        # to be saved for posterity
-        self['coadd_run'] = self.coadd_run
-        self['band'] = self.band
-
-        # these are not required obj_data fields
-        self['extra_obj_data_fields'] = [
-            ('number','i8'),
-            ('input_row','f8'),
-            ('input_col','f8'),
-        ]
-
-        # for converting fwhm and sigma for a gaussian
-        self['fpack_command'] = \
-            'fpack -t %d,%d {fname}' % tuple(self['fpack_dims'])

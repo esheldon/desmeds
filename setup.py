@@ -3,9 +3,11 @@ import glob
 from distutils.core import setup
 
 scripts=[
-        'desmeds-gen-all',
-        'desmeds-gen-all-release',
-        ]
+    'desmeds-gen-all',
+    'desmeds-gen-all-release',
+    'desmeds-make-stubby-meds',
+    'desmeds-make-meds',
+]
 
 scripts=[os.path.join('bin',s) for s in scripts]
 
