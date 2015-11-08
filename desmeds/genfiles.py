@@ -160,7 +160,7 @@ def get_magzp_offset(conf):
     For SVA1 an artificial offset was added to the zeropoints
     in the zeropoint table.
     """
-    
+
     if release_is_sva1(conf['release']):
         offset=0.057
         print('using magzp offset:',offset)
@@ -193,7 +193,7 @@ class Generator(object):
         self.cf=desdb.files.Coadd(coadd_run=coadd_run,
                                   band=band,
                                   conn=self.conn)
-            
+
         self.cf.load(srclist=True)
 
         self.set_srclist()
@@ -275,7 +275,7 @@ class Generator(object):
                                          self.band)
 
         job_name='%s-%s' % (self.cf['tilename'],self.band)
-        
+
         cmd="bash %s" % script_file
 
         text=_wq_template % {'job_name':job_name, 'cmd':cmd}
@@ -299,7 +299,7 @@ class Generator(object):
         """
         detband=self.conf['detband']
 
-        
+
         coadd_cat_file=self.get_coadd_cat_file(detband)
 
         # 1-column ascii file holding the coadd_objects_id
@@ -360,7 +360,7 @@ class Generator(object):
                          coadd_run=coadd_run,
                          tilename=cf['tilename'],
                          band=band)
-        
+
         coadd_seg, is_fz =check_fz(coadd_seg)
         if is_fz:
             coadd_seg_hdu=2
@@ -420,7 +420,7 @@ class Generator(object):
 
 
         make_dirs(script_file, meds_file)
-        
+
         print(script_file)
         with open(script_file,'w') as fobj:
             fobj.write(text)
@@ -442,7 +442,7 @@ class Generator(object):
                'band':self.band}
 
         print("getting coadd_object_ids info for:",self.cf['image_id'])
-        
+
         res = self.conn.quick(query, array=True)
         return res
 
@@ -499,7 +499,7 @@ def set_astro_refine(coadd_run, srclist):
             os.makedirs(outdir)
         except:
             pass
-    
+
     for s in srclist:
         head_file=s['astro_refine']
         fits_file=df.url('astro_refine_fits',
@@ -516,7 +516,7 @@ def set_astro_refine(coadd_run, srclist):
             print("writing:",fits_file)
             fitsio.write(fits_file, None, header=hdata, clobber=True)
 
-            
+
 def match_to_astro_rerun(srclist, conf, tilename):
     """
     So the ASTROM_FLAG has the following bits set.  Good ones have ASTROM_FLAG == 0.  The flags mean:
