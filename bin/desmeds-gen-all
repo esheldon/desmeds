@@ -2,7 +2,7 @@
 """
     %prog [options] medsconf coadd_run band
 
-Generate scripts, idfiles, srclists etc. for a single coadd run and band
+Generate batch scripts coadd run and band
 """
 from __future__ import print_function
 import sys

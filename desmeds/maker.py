@@ -5,6 +5,7 @@ DESMEDSMaker
 from __future__ import print_function
 import os
 from os.path import basename
+import numpy
 from numpy import zeros, sqrt, log, vstack, array
 import json
 import yaml

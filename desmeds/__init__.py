@@ -1,4 +1,5 @@
 from . import maker
+from .maker import DESMEDSMaker
 
 from . import files
 from . import util
