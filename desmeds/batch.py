@@ -41,9 +41,10 @@ def release_is_sva1(release):
     return False
 
 class Generator(object):
-    def __init__(self, medsconf, check=False, shell='bash'):
+    def __init__(self, medsconf, check=False):
 
         self.medsconf=medsconf
+        self.conf=files.read_meds_config(medsconf)
         self.conn=desdb.Connection()
 
         self.check=check
@@ -69,8 +70,11 @@ class Generator(object):
 
         self.cf.load(srclist=do_srclist)
 
+        nmissing=0
         if self.check:
-            self._check_all()
+            nmissing += self._check_all()
+
+        return nmissing
 
     def write_all(self):
         """
@@ -128,6 +132,8 @@ class Generator(object):
         for r in self.cf.srclist:
             nmissing += self.do_check_inputs(r)
         print('nmissing: ',nmissing)
+
+        return nmissing
 
 
     def do_check_inputs(self, r):

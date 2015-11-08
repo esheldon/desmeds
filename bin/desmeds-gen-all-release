@@ -21,34 +21,18 @@ parser = OptionParser(__doc__)
 
 parser.add_option('--clobber',action='store_true',
                   help=("don't write scripts even if they already "
-                        "exist.  looks for the stats file"))
+                        "exist; useful when doing slow check"))
 parser.add_option('--missing',action='store_true',
                   help="only write if meds file does not exist")
 
 parser.add_option('-b','--bands',default=None,
                   help="bands to do, default all")
+
 parser.add_option('-c','--check',action='store_true',
                   help="check that files exist")
-parser.add_option('--vers',default='work',
-                  help="Code version, default %default")
 
 _df=desdb.DESFiles()
 
-
-def stats_exist(medsconf, coadd_run, band):
-    """
-    just check if exist
-    """
-
-    tilename=coadd_run.split('_')[1]
-
-    stats_path = files.get_meds_stats_file(medsconf,
-                                           coadd_run,
-                                           tilename,
-                                           band)
-
-
-    return os.path.exists(stats_path)
 
 def main():
     options, args = parser.parse_args(sys.argv[1:])
@@ -57,9 +41,7 @@ def main():
         sys.exit(45)
 
     medsconf=args[0]
-    gen=desmeds.Generator(medsconf,
-                          check=options.check,
-                          version=options.vers)
+    gen=desmeds.batch.Generator(medsconf, check=options.check)
 
     # try to make meds files for all the 'bands', but only
     # for tiles 'withbands'
@@ -88,8 +70,10 @@ def main():
     ntot = nruns*len(bands)
 
     itot=0
+    nmissing=0
     for i,coadd_run in enumerate(coadd_runs):
-        tilename = coadd_run.split('_')[1]
+        tilename = files.coadd_run_to_tilename(coadd_run)
+
         for band in bands:
 
             print('-'*70)
@@ -104,10 +88,14 @@ def main():
                                    coadd_run=coadd_run,
                                    tilename=tilename,
                                    band=band)
+
             meds_file = files.get_meds_file(medsconf,
                                             coadd_run,
-                                            tilename,
                                             band)
+            wq_file = files.get_meds_wq_file(medsconf,
+                                             coadd_run,
+                                             band)
+
 
             if options.missing and os.path.exists(meds_file):
                 print("skipping because meds file already exists")
@@ -117,12 +105,14 @@ def main():
                 print("skipping because coadd does not exist for this band")
                 continue
 
-            if not options.clobber and stats_exist(medsconf, coadd_run, band):
-                print("skipping because stats file exists")
+            if not options.clobber and os.path.exists(wq_file):
+                print("skipping because wq file exists")
                 continue
 
-            gen.load_coadd(coadd_run, band)
+            nmissing += gen.load_coadd(coadd_run, band)
             gen.write_all()
 
+    if options.check:
+        print("total missing:",nmissing)
 main()
 
