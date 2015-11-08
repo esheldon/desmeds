@@ -162,7 +162,7 @@ def get_stubby_meds_file(coadd_run,band,medsconf):
     return os.path.join(dr,'%s-%s-stubby-meds-%s.fits' % (tilename,band,medsconf))
 
 
-def get_meds_file(meds_vers, coadd_run, tilename, band):
+def get_meds_file(meds_vers, coadd_run, tilename, band, ext='fits.fz'):
     """
     get the meds file for the input coadd run, tilename, band
 
@@ -180,7 +180,6 @@ def get_meds_file(meds_vers, coadd_run, tilename, band):
     """
 
     type='meds'
-    ext='fits.fz'
     return get_meds_datafile_generic(meds_vers,
                                      coadd_run,
                                      tilename,

@@ -46,7 +46,6 @@ class DESMEDSMaker(dict):
     def __init__(self,
                  config,
                  coadd_run,
-                 tilename,
                  band,
                  do_scripts=True,
                  do_data=True):
@@ -54,7 +53,6 @@ class DESMEDSMaker(dict):
         self.update(config)
 
         self.coadd_run = coadd_run
-        self.tilename = tilename
         self.band = band
 
         self.df = desdb.files.DESFiles()
@@ -71,8 +69,8 @@ class DESMEDSMaker(dict):
         """
 
         if self.do_scripts:
-            self._read_coadd_cat()
             self._query_coadd_info()
+            self._read_coadd_cat()
             self._build_image_data()
             self._build_meta_data()
             self._build_object_data()
@@ -109,6 +107,8 @@ class DESMEDSMaker(dict):
                                     band=self.band,
                                     conn=self.conn)
         self.cf.load(srclist=True)
+
+        self.tilename=self.cf['tilename']
 
     def _build_image_data(self):
         """
@@ -494,7 +494,11 @@ class DESMEDSMaker(dict):
         filename = files.get_meds_file(self['medsconf'],
                                        self.coadd_run,
                                        self.tilename,
-                                       self.band)
+                                       self.band,
+                                       ext=ext)
+        if dir is not None:
+            bname = basename(filename)
+            filename = os.path.join(dir, bname)
 
         # FIXME - for testing
         #filename = os.path.join('.',basename(filename))
