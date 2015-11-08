@@ -45,6 +45,17 @@ class DESMEDSMaker(dict):
         a 'medsconf' entry a minimum.  If a string, this indicates a
         DES meds configuration, which must exist at the usual place;
         see files.get_meds_config_file for details
+    coadd_run: string
+        Identifier for the coadd
+    band: string
+        Band for which to make the meds file
+    check: bool, optional
+        If True, check that all required files exist, default False
+    do_inputs: bool, optional
+        If True, write the stubby meds file holding the inputs for
+        the MEDSMaker. Default True.
+    do_meds: bool, optional
+        If True, write the MEDS file.  Default True
     """
     def __init__(self,
                  medsconf,
@@ -508,8 +519,6 @@ class DESMEDSMaker(dict):
             bname = basename(filename)
             filename = os.path.join(dir, bname)
 
-        # FIXME - for testing
-        #filename = os.path.join('.',basename(filename))
         return filename
 
 
