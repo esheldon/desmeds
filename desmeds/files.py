@@ -4,6 +4,12 @@ import desdb
 import yaml
 import tempfile
 
+def get_desdata():
+    """
+    get the environment variable DESDATA
+    """
+    return os.environ['DESDATA']
+
 def get_config_dir():
     """
     the config directory
@@ -673,7 +679,7 @@ def expandpath(path):
     """
     path=os.path.expandvars(path)
     path=os.path.expanduser(path)
-    path=os.path.abspath(path)
+    path=os.path.realpath(path)
     return path
 
 

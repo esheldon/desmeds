@@ -2,7 +2,9 @@
 """
     %prog [options] medsconf coadd_run band
 
-Generate batch scripts coadd run and band
+Generate the inputs and batch scripts for the specified coadd run and band
+
+Note script making is not in place as of now
 """
 from __future__ import print_function
 import sys
@@ -10,34 +12,31 @@ import os
 import desmeds
 
 
-from optparse import OptionParser
-parser=OptionParser(__doc__)
+from argparse import ArgumentParser
+parser=ArgumentParser()
 
-parser.add_option('-c','--check',action='store_true',
-                  help="check that files exist")
-parser.add_option('--vers',default='work',
-                  help="Code version, default %default")
+parser.add_argument('medsconf',help='DES MEDS configuration identifier')
+parser.add_argument('coadd_run',help='DES coadd run identifier (pre y2)')
+parser.add_argument('band',help='bandpass')
+parser.add_argument('--do-meds',action='store_true',
+                    help='write the MEDS file as well as scripts')
+parser.add_argument('-c','--check',action='store_true',
+                    help="check that files exist")
 
 
 
 def main():
-    options,args = parser.parse_args(sys.argv[1:])
+    args=parser.parse_args()
 
-    if len(args) < 3:
-        parser.print_help()
-        sys.exit(1)
+    maker = desmeds.DESMEDSMaker(args.medsconf,
+                                 args.coadd_run,
+                                 args.band,
+                                 do_inputs=True,
+                                 do_meds=args.do_meds,
+                                 check=args.check)
+    maker.go()
 
-
-    medsconf=args[0]
-    coadd_run=args[1]
-    band=args[2]
-
-    gen=desmeds.Generator(medsconf,
-                          check=options.check,
-                          version=options.vers)
-
-    gen.load_coadd(coadd_run, band)
-    gen.write_all()
+    # make scripts here
 
 main()
 

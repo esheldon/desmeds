@@ -25,50 +25,58 @@ from . import util
 
 from . import util
 from . import files
+from .defaults import default_config
 
 from .files import \
         TempFile, \
         StagedInFile, \
         StagedOutFile
 
-DEFAULT_FPACK_DIMS = [10240,1]
-
-DES_CUTOUT_TYPES       = ['image','weight','seg','bmask']
-
-# for meds maker we only demand image, the user must request other
-# types.  for lsst these will have different names
-
+fwhm_fac = 2*sqrt(2*log(2))
 
 class DESMEDSMaker(dict):
     """
     generate inputs for a MEDSMaker
+
+    parameters
+    ----------
+    medsconf: string or dict
+        If a dict, this represents the configuration.  It must contain
+        a 'medsconf' entry a minimum.  If a string, this indicates a
+        DES meds configuration, which must exist at the usual place;
+        see files.get_meds_config_file for details
     """
     def __init__(self,
-                 config,
+                 medsconf,
                  coadd_run,
                  band,
-                 do_scripts=True,
-                 do_data=True):
-
-        self.update(config)
+                 check=False,
+                 do_inputs=True,
+                 do_meds=True):
 
         self.coadd_run = coadd_run
         self.band = band
 
+        self._load_config(medsconf)
+
+        self._set_extra_config()
+
         self.df = desdb.files.DESFiles()
-        self._set_defaults()
 
-        self.do_scripts = do_scripts
-        self.do_data = do_data
+        self.do_inputs = do_inputs
+        self.do_meds = do_meds
 
-        self.DESDATA = os.environ['DESDATA']
+        self.DESDATA = files.get_desdata()
+
+        if check:
+            raise NotImplementedError("implement file existence checking")
 
     def go(self):
         """
         make the MEDS file
         """
 
-        if self.do_scripts:
+        if self.do_inputs:
             self._query_coadd_info()
             self._read_coadd_cat()
             self._build_image_data()
@@ -76,7 +84,7 @@ class DESMEDSMaker(dict):
             self._build_object_data()
             self._write_stubby_meds()
 
-        if self.do_data:
+        if self.do_meds:
             self._load_stubby_meds()
             self._write_meds_file() # does second pass to write data
 
@@ -316,7 +324,7 @@ class DESMEDSMaker(dict):
 
         # now put in fft sizes
         bins = [0]
-        bins.extend([sze for sze in self['sizes'] 
+        bins.extend([sze for sze in self['allowed_box_sizes'] 
                      if sze >= self['min_box_size']
                      and sze <= self['max_box_size']])
 
@@ -335,7 +343,7 @@ class DESMEDSMaker(dict):
         cat = self.coadd_cat
 
         ellipticity = 1.0 - cat['b_world']/cat['a_world']
-        sigma = cat['flux_radius']*2.0/self['fwhm_fac']
+        sigma = cat['flux_radius']*2.0/fwhm_fac
         drad = sigma*self['sigma_fac']
         drad = drad*(1.0 + ellipticity)
         drad = numpy.ceil(drad)
@@ -517,15 +525,32 @@ class DESMEDSMaker(dict):
                                  inverse=inverse)
         return pos
 
-
-    def _set_defaults(self):
+    def _load_config(self, medsconf):
         """
-        set configuration parameters to their defaults, if not
-        already set
+        load the default config, then load the input config
         """
-        required=['medsconf']
-        util.check_for_required_config(self, required)
 
+        self.update(default_config)
+
+        if isinstance(medsconf, dict):
+            conf=medsconf
+        else:
+            conf=files.read_meds_config(medsconf)
+            conf['medsconf'] = medsconf
+
+        util.check_for_required_config(conf, ['medsconf'])
+
+        self.update(conf)
+
+
+    def _set_extra_config(self):
+        """
+        set extra configuration parameters
+        """
+
+        # to be saved for posterity
+        self['coadd_run'] = self.coadd_run
+        self['band'] = self.band
 
         # these are not required obj_data fields
         self['extra_obj_data_fields'] = [
@@ -535,47 +560,5 @@ class DESMEDSMaker(dict):
         ]
 
         # for converting fwhm and sigma for a gaussian
-        self['fwhm_fac'] = 2*sqrt(2*log(2))
-        self['fpack_dims'] = self.get('fpack_dims',DEFAULT_FPACK_DIMS)
-        self['fpack_command'] = 'fpack -t %d,%d {fname}' % tuple(self['fpack_dims'])
-
-        self['cutout_types'] = self.get('cutout_types',DES_CUTOUT_TYPES)
-
-        # coadd positions.  We should probably make this required since
-        # it is so important
-        self['row_name'] = self.get('row_name','y_image')
-        self['col_name'] = self.get('col_name','x_image')
-
-        # DES uses scamp, so position offset 1, meaning "wcs coords" are
-        # pixels start at 1
-        self['position_offset'] = self.get('position_offset',1.0)
-
-        # box size defaults
-        self['sigma_fac'] = self.get('sigma_fac',5.0)
-        self['sizes'] = self.get('sizes',[2,3,4,6,8,12,16,24,32,48,
-                                          64,96,128,192,256,
-                                          384,512,768,1024,1536,
-                                          2048,3072,4096,6144])
-        self['min_box_size'] = self.get('min_box_size',32)
-        self['max_box_size'] = self.get('max_box_size',256)
-        self['magzp_ref'] = self.get('magzp_ref',30.0)
-
-        # astro defaults
-        self['use_astro_refine'] = self.get('use_astro_refine',True)
-
-        # DES specific
-        # SE images
-        self['se_image_ext'] = self.get('se_image_ext',1)
-        self['se_weight_ext'] = self.get('se_weight_ext',3)
-        self['se_bmask_ext'] = self.get('se_bmask_ext',2)
-
-        self['se_bkg_ext'] = self.get('se_bkg_ext',1)
-        self['se_seg_ext'] = self.get('se_seg_ext',1)
-
-        # coadd images
-        self['coadd_image_ext'] = self.get('coadd_image_ext',1)
-        self['coadd_weight_ext'] = self.get('coadd_weight_ext',2)
-        self['coadd_bmask_ext'] = -1
-
-        self['coadd_bkg_ext'] = -1
-        self['coadd_seg_ext'] = self.get('coadd_seg_ext',1)
+        self['fpack_command'] = \
+            'fpack -t %d,%d {fname}' % tuple(self['fpack_dims'])

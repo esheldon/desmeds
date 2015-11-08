@@ -72,7 +72,7 @@ def main():
                 raise ValueError("band '%s' not in meds conf" % band)
     else:
         bands=conf['bands']
-    
+
     print("making meds for bands:",bands)
     print("requiring withbands:",conf['withbands'])
 
@@ -84,14 +84,14 @@ def main():
                                                   withbands=conf['withbands'])
     nruns=len(coadd_runs)
     print("found",nruns,"runs")
-    
+
     ntot = nruns*len(bands)
 
     itot=0
     for i,coadd_run in enumerate(coadd_runs):
         tilename = coadd_run.split('_')[1]
         for band in bands:
-           
+
             print('-'*70)
             print('%d/%d: %s %s' % (itot+1,ntot,coadd_run,band))
 
