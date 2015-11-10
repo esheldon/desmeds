@@ -8,7 +8,7 @@ desmeds-gen-all-release medsconf
 The above generates all the `wq` submit scripts.
 
 For example meds config files, see https://github.com/esheldon/desmeds-config
-An example is `medstb-y1a1-v01d.yaml`. Note you need the environment variable
+An example testbed is `medstb-y1a1-v01d.yaml`. Note you need the environment variable
 `DESMEDS_CONFIG_DIR` set to point to the location of the config files.
 
 ## generating a single MEDS file
