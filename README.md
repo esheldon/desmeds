@@ -35,5 +35,6 @@ python setup.py install --prefix=/some/path
 * [desdb](https://github.com/esheldon/desdb) (version >= 0.9.0)
 * [fitsio](https://github.com/esheldon/fitsio) (use git master for now)
 * [esutil](https://github.com/esheldon/esutil) (version >= 0.5.3)
-* The `$DESDATA` environment variable must be set, pointing to the
+* The `$DESDATA` environment variable should point to the
     root of the des data on your system
+* The `$DESMEDS_CONFIG_DIR` environment variable should point to the location of the config files
