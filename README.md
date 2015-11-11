@@ -35,3 +35,5 @@ python setup.py install --prefix=/some/path
 * desdb (version >= 0.9.0)
 * fitsio (use git master for now)
 * esutil (version >= 0.5.3)
+* The `$DESDATA` environment variable must be set, pointing to the
+    root of the des data on your system
