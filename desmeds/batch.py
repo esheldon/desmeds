@@ -9,7 +9,6 @@ from . import files
 
 _wq_make_stubby_template="""
 command: |
-    #source ~/.bashrc
     medsconf="%(medsconf)s"
     coadd_run="%(coadd_run)s"
     band="%(band)s"
@@ -20,7 +19,6 @@ job_name: %(job_name)s
 
 _wq_make_meds_template="""
 command: |
-    #source ~/.bashrc
     medsconf="%(medsconf)s"
     coadd_run="%(coadd_run)s"
     band="%(band)s"
