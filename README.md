@@ -31,9 +31,9 @@ python setup.py install --prefix=/some/path
 
 ## requirements
 
-* meds (version >= 0.9.0)
-* desdb (version >= 0.9.0)
-* fitsio (use git master for now)
-* esutil (version >= 0.5.3)
+* [meds](https://github.com/esheldon/meds) (version >= 0.9.0)
+* [desdb](https://github.com/esheldon/desdb) (version >= 0.9.0)
+* [fitsio](https://github.com/esheldon/fitsio) (use git master for now)
+* [esutil](https://github.com/esheldon/esutil) (version >= 0.5.3)
 * The `$DESDATA` environment variable must be set, pointing to the
     root of the des data on your system
