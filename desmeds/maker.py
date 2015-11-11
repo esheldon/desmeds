@@ -474,7 +474,7 @@ class DESMEDSMaker(dict):
         if os.path.exists(tpath):
             os.remove(tpath)
 
-        tmpdir = files.get_temp_dir()
+        tmpdir = os.path.dirname(ucfilename)
         with StagedOutFile(fzfilename,tmpdir=tmpdir) as sf:
             cmd = self['fpack_command']
             cmd = cmd.format(fname=ucfilename)
