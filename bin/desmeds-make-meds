@@ -17,15 +17,25 @@ parser.add_argument('medsconf',help='DES MEDS configuration identifier')
 parser.add_argument('coadd_run',help='DES coadd run identifier (pre y2)')
 parser.add_argument('band',help='bandpass')
 
+parser.add_argument('--from-stubby',
+                    help=('use an already existing stubby '
+                          'meds file, rather than generating '
+                          'the inputs, which requires db access'))
+
 
 
 def main():
     args=parser.parse_args()
 
+    if args.from_stubby:
+        do_inputs=False
+    else:
+        do_inputs=True
+
     maker = desmeds.DESMEDSMaker(args.medsconf,
                                  args.coadd_run,
                                  args.band,
-                                 do_inputs=False, # assume already made
+                                 do_inputs=do_inputs,
                                  do_meds=True)
     maker.go()
 

@@ -3,13 +3,20 @@ code specific to des MEDS production
 
 ## generating a single MEDS file
 
-```python
+```bash
 # first make a "stubby" meds, holding all the inputs for the MEDSMaker
 # this is run first because it needs network and db access
 desmeds-make-stubby-meds medsconf coadd_run band
 
 # now make the full meds, which does not require db access
 desmeds-make-meds medsconf coadd_run band
+
+# a worked example
+medsconf="tb-y1a1-v01d"
+coadd_run="20141105000042_DES0347-5540"
+band="z"
+desmeds-make-stubby-meds $medsconf $coadd_run $band
+desmeds-make-meds $medsconf $coadd_run $band
 ```
 
 ## generating scripts to make MEDS files for a DESDM release
