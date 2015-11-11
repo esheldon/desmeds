@@ -16,7 +16,7 @@ desmeds-make-meds medsconf coadd_run band
 ```python
 desmeds-gen-all-release medsconf
 ```
-The above generates all the `wq` submit scripts.
+The above generates all the [wq](https://github.com/esheldon/wq) submit scripts.
 The `wq` submit scripts call `des-make-meds`
 
 For example meds config files, see https://github.com/esheldon/desmeds-config
