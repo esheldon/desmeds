@@ -23,16 +23,18 @@ desmeds-make-stubby-meds medsconf coadd_run band
 desmeds-make-meds --from-stubby medsconf coadd_run band
 ```
 
+## Example meds configuration files
+
+For example meds config files, see https://github.com/esheldon/desmeds-config
+An example testbed is `medstb-y1a1-v01d.yaml`. Note you need the environment variable
+`DESMEDS_CONFIG_DIR` set to point to the location of the config files.
+
 ## generating scripts to make MEDS files for a DESDM release
 ```python
 desmeds-gen-all-release medsconf
 ```
 The above generates all the [wq](https://github.com/esheldon/wq) submit scripts.
 The `wq` submit scripts call `des-make-meds`
-
-For example meds config files, see https://github.com/esheldon/desmeds-config
-An example testbed is `medstb-y1a1-v01d.yaml`. Note you need the environment variable
-`DESMEDS_CONFIG_DIR` set to point to the location of the config files.
 
 ## installation
 ```
