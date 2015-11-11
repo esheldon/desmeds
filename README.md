@@ -30,14 +30,14 @@ An example testbed is `medstb-y1a1-v01d.yaml`. Note you need the environment var
 `DESMEDS_CONFIG_DIR` set to point to the location of the config files.
 
 ## generating scripts to make MEDS files for a DESDM release
-```python
+```bash
 desmeds-gen-all-release medsconf
 ```
 The above generates all the [wq](https://github.com/esheldon/wq) submit scripts.
 The `wq` submit scripts call `des-make-meds`
 
 ## installation
-```
+```bash
 python setup.py install
 python setup.py install --prefix=/some/path
 ```
