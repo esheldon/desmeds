@@ -13,9 +13,10 @@ coadd_run="20141105000042_DES0347-5540"
 band="z"
 desmeds-make-meds $medsconf $coadd_run $band
 
-# You can also first make a "stubby" meds, holding all the inputs for the
-# MEDSMaker. This is useful because creating the inputs requires
-# network and db access, but creating the final file does not
+# You can also first make a "stubby" meds, holding information
+# required to run the MEDSMaker. This is useful because creating
+# the inputs requires network and db access, but creating the 
+# final file does not
 desmeds-make-stubby-meds medsconf coadd_run band
 
 # now make the full meds, taking inputs from the stubby MEDS.
