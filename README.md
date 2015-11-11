@@ -4,6 +4,7 @@ code specific to des MEDS production
 ## generating a single MEDS file
 
 ```bash
+# A meds file can be generated using a single script
 desmeds-make-meds medsconf coadd_run band
 
 # a worked example
