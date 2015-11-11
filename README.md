@@ -15,11 +15,11 @@ desmeds-make-meds $medsconf $coadd_run $band
 # You can also first make a "stubby" meds, holding all the inputs for the
 # MEDSMaker. This is useful because creating the inputs requires
 # network and db access, but creating the final file does not
-
 desmeds-make-stubby-meds medsconf coadd_run band
 
-# now make the full meds, which does not require db access
-desmeds-make-meds medsconf coadd_run band
+# now make the full meds, taking inputs from the stubby MEDS.
+# this call does not require db access
+desmeds-make-meds --from-stubby medsconf coadd_run band
 ```
 
 ## generating scripts to make MEDS files for a DESDM release
