@@ -24,7 +24,7 @@ command: |
     medsconf="%(medsconf)s"
     coadd_run="%(coadd_run)s"
     band="%(band)s"
-    desmeds-make-meds $medsconf $coadd_run $band
+    desmeds-make-meds --from-stubby $medsconf $coadd_run $band
 
 job_name: %(job_name)s
 mode: bynode

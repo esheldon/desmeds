@@ -17,7 +17,7 @@ parser.add_argument('medsconf',help='DES MEDS configuration identifier')
 parser.add_argument('coadd_run',help='DES coadd run identifier (pre y2)')
 parser.add_argument('band',help='bandpass')
 
-parser.add_argument('--from-stubby',
+parser.add_argument('--from-stubby',action='store_true',
                     help=('use an already existing stubby '
                           'meds file, rather than generating '
                           'the inputs, which requires db access'))
