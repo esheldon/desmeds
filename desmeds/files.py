@@ -30,7 +30,7 @@ def get_meds_config_file(medsconf):
         Identifier for the meds config, e.g. "013"
     """
     dir=get_config_dir()
-    fname='meds%s.yaml' % medsconf
+    fname='meds-%s.yaml' % medsconf
     return os.path.join(dir, fname)
 
 
