@@ -97,7 +97,7 @@ class DESMEDSMaker(dict):
         """
         fname=self.df.url(type='coadd_cat',
                           coadd_run=self['coadd_run'],
-                          band=self['band'],
+                          band=self['refband'],
                           tilename=self['tilename'])
         print('reading coadd cat:',fname)
         self.coadd_cat = fitsio.read(fname, lower=True)
@@ -117,6 +117,10 @@ class DESMEDSMaker(dict):
                                     band=self['band'],
                                     conn=self.conn)
         self.cf.load(srclist=True)
+
+        self.cf_refband = desdb.files.Coadd(coadd_run=self['coadd_run'],
+                                            band=self['refband'],
+                                            conn=self.conn)
 
     def _build_image_data(self):
         """
@@ -300,7 +304,7 @@ class DESMEDSMaker(dict):
         where
             COADD_OBJECTS.imageid_{band} = {id}
         """
-        qwry = qwry.format(band=self['band'],id=self.cf['image_id'])
+        qwry = qwry.format(band=self['refband'],id=self.cf_refband['image_id'])
         return self.conn.quick(qwry,array=True)
 
     def _get_box_sizes(self):
@@ -388,10 +392,8 @@ class DESMEDSMaker(dict):
         self.obj_data['id'] = iddata['coadd_objects_id']
 
         # get ra,dec
-        coadd_wcs_dict = json.loads(self.image_info['wcs'][0])
-        coadd_wcs = eu.wcsutil.WCS(coadd_wcs_dict)
-        # swapped plus 1 to account for x,y -> col,row and sextractor +1's
-
+        coadd_wcs = fitsio.read_header(self.cf_refband['image_url'],
+                                       ext=self['coadd_image_ext'])
         ra,dec = coadd_wcs.image2sky(pos['wcs_col'], pos['wcs_row'])
         self.obj_data['ra'] = ra
         self.obj_data['dec'] = dec
@@ -531,7 +533,7 @@ class DESMEDSMaker(dict):
 
         self['coadd_run'] = coadd_run
         self['band'] = band
-        self['tilename']=files.coadd_run_to_tilename(coadd_run)
+        self['tilename'] = files.coadd_run_to_tilename(coadd_run)
 
         self['extra_obj_data_fields'] = [
             ('number','i8'),
