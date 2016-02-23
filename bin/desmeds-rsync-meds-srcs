@@ -38,7 +38,8 @@ if __name__ == '__main__':
         err = subprocess.call(rcmd.split(),shell=True)
         src = dst.replace(DESDATA,'${DESREMOTE_RSYNC}')
         rcmd = cmd % (src,dst)
-        err = subprocess.call(rcmd.split(),shell=True)
+        print rcmd
+        #err = subprocess.call(rcmd.split(),shell=True)
     
     # coadd
     _downit(cf['image_url'])
