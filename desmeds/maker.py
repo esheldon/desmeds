@@ -121,6 +121,7 @@ class DESMEDSMaker(dict):
         self.cf_refband = desdb.files.Coadd(coadd_run=self['coadd_run'],
                                             band=self['refband'],
                                             conn=self.conn)
+        self.cf_refband.load(srclist=True)
 
     def _build_image_data(self):
         """
@@ -392,8 +393,9 @@ class DESMEDSMaker(dict):
         self.obj_data['id'] = iddata['coadd_objects_id']
 
         # get ra,dec
-        coadd_wcs = fitsio.read_header(self.cf_refband['image_url'],
+        coadd_hdr = fitsio.read_header(self.cf_refband['image_url'],
                                        ext=self['coadd_image_ext'])
+        coadd_wcs = eu.wcsutil.WCS(coadd_hdr)
         ra,dec = coadd_wcs.image2sky(pos['wcs_col'], pos['wcs_row'])
         self.obj_data['ra'] = ra
         self.obj_data['dec'] = dec
