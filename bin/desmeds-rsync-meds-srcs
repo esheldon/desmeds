@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+"""
+    %prog [options] coadd_run band
+    download sources for MEDS file"""
+import os
+import sys
+import meds
+import numpy as np
+import glob
+import desdb
+import subprocess
+
+from optparse import OptionParser
+parser = OptionParser(__doc__)
+
+if __name__ == '__main__':
+    # options
+    options, args = parser.parse_args(sys.argv[1:])
+    if len(args) < 2:
+        parser.print_help()
+        sys.exit(45)
+
+    coadd_run = args[0]
+    band = args[1]
+    cmd = "rsync -avP --password-file $DES_RSYNC_PASSFILE %s %s"
+    
+    # get coadd conn and sources
+    conn = desdb.Connection()
+    cf = desdb.files.Coadd(coadd_run=coadd_run,band=band,conn=conn)
+    cf.load(srclist=True)
+    srclist = cf.srclist
+    DESDATA = os.environ['DESDATA']
+    
+    # download
+    def _downit(dst):
+        pth,nm = os.path.split(dst)
+        rcmd = 'mkdir -p %s' % pth
+        err = subprocess.call(rcmd,shell=True)
+        src = dst.replace(DESDATA,'${DESREMOTE_RSYNC}')
+        rcmd = cmd % (src,dst)
+        err = subprocess.call(rcmd,shell=True)
+    
+    # coadd
+    _downit(cf['image_url'])
+    seg_url = cf['image_url'].replace('/%s/coadd/' % coadd_run,'/%s/QA/segmap/' % coadd_run).replace('.fits.fz','_seg.fits.fz')
+    _downit(seg_url)
+    
+    # SE images
+    for s in srclist:
+        _downit(s['red_image'])
+        _downit(s['red_bkg'])
+        _downit(s['red_seg'])        
+        
+        if 'astro_refine' in s:
+            _downit(s['astro_refine'])
