@@ -8,6 +8,7 @@ import meds
 import numpy as np
 import glob
 import desdb
+import subprocess
 
 from optparse import OptionParser
 parser = OptionParser(__doc__)
@@ -33,9 +34,11 @@ if __name__ == '__main__':
     # download
     def _downit(dst):
         pth,nm = os.path.split(dst)
-        os.system('mkdir -p %s' % pth)        
+        rcmd = 'mkdir -p %s' % pth
+        err = subprocess.call(rcdm.split(),shell=True)
         src = dst.replace(DESDATA,'${DESREMOTE_RSYNC}')
-        os.system(cmd % (src,dst))
+        rcmd = cmd % (src,dst)
+        err = subprocess.call(rcdm.split(),shell=True)
     
     # coadd
     _downit(cf['image_url'])
