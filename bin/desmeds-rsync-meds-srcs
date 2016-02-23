@@ -35,10 +35,10 @@ if __name__ == '__main__':
     def _downit(dst):
         pth,nm = os.path.split(dst)
         rcmd = 'mkdir -p %s' % pth
-        err = subprocess.call(rcdm.split(),shell=True)
+        err = subprocess.call(rcmd.split(),shell=True)
         src = dst.replace(DESDATA,'${DESREMOTE_RSYNC}')
         rcmd = cmd % (src,dst)
-        err = subprocess.call(rcdm.split(),shell=True)
+        err = subprocess.call(rcmd.split(),shell=True)
     
     # coadd
     _downit(cf['image_url'])
