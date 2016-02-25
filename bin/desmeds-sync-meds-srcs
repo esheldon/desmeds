@@ -44,6 +44,8 @@ if __name__ == '__main__':
     _downit(cf['image_url'])
     seg_url = cf['image_url'].replace('/%s/coadd/' % coadd_run,'/%s/QA/segmap/' % coadd_run).replace('.fits.fz','_seg.fits.fz')
     _downit(seg_url)
+    cat_url = cf['image_url'].replace('.fits.fz','_cat.fits')
+    _downit(cat_url)
     
     # SE images
     for s in srclist:
