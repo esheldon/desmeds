@@ -64,7 +64,7 @@ if __name__ == '__main__':
                 fp.write(ff+'\n')
 
         # download
-        cmd ='wget -x --input-file=%s -nH --cut-dirs=2 --directory-prefix=${DESDATA}'
+        cmd ='wget -x --input-file=%s -nH --cut-dirs=2 --directory-prefix=${DESDATA} --timestamping'
         rcmd = cmd % tfile
         err = subprocess.check_call(rcmd,shell=True)
     except:
