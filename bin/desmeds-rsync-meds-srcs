@@ -58,17 +58,20 @@ if __name__ == '__main__':
     # write to temp file
     fd,tfile = tempfile.mkstemp()
     os.close(fd)
-    with open(tfile,'w') as fp:
-        for ff in fnames:
-            fp.write(ff+'\n')
+    try: 
+        with open(tfile,'w') as fp:
+            for ff in fnames:
+                fp.write(ff+'\n')
 
-    # rsync them
-    cmd = "rsync -avP --files-from=%s --password-file $DES_RSYNC_PASSFILE ${DESREMOTE_RSYNC}/ ${DESDATA}/"
-    rcmd = cmd % tfile
-    err = subprocess.call(rcmd,shell=True)
-    
-    # remove the temp file
-    try:
-        os.remove(tfile)
+        # rsync them
+        cmd = "rsync -avP --files-from=%s --password-file $DES_RSYNC_PASSFILE ${DESREMOTE_RSYNC}/ ${DESDATA}/"
+        rcmd = cmd % tfile
+        err = subprocess.check_call(rcmd,shell=True)
     except:
-        pass
+        raise
+    finally:
+        # remove the temp file
+        try:
+            os.remove(tfile)
+        except:
+            pass

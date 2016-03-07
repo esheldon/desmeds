@@ -58,20 +58,23 @@ if __name__ == '__main__':
     # write to temp file
     fd,tfile = tempfile.mkstemp()
     os.close(fd)
-    with open(tfile,'w') as fp:
-        for ff in fnames:
-            fp.write(ff+'\n')
-
-    # download
-    cmd ='wget -x --input-file=%s -nH --cut-dirs=2 --directory-prefix=${DESDATA}'
-    rcmd = cmd % tfile
-    err = subprocess.call(rcmd,shell=True)
-    
-    # remove the temp file
     try:
-        os.remove(tfile)
+        with open(tfile,'w') as fp:
+            for ff in fnames:
+                fp.write(ff+'\n')
+
+        # download
+        cmd ='wget -x --input-file=%s -nH --cut-dirs=2 --directory-prefix=${DESDATA}'
+        rcmd = cmd % tfile
+        err = subprocess.check_call(rcmd,shell=True)
     except:
-        pass
+        raise
+    finally:
+        # remove the temp file
+        try:
+            os.remove(tfile)
+        except:
+            pass
 
 
 
