@@ -9,6 +9,7 @@ import numpy as np
 import glob
 import desdb
 import subprocess
+import tempfile
 
 from optparse import OptionParser
 parser = OptionParser(__doc__)
@@ -22,7 +23,6 @@ if __name__ == '__main__':
 
     coadd_run = args[0]
     band = args[1]
-    cmd ='wget %s -O %s'
     
     # get coadd conn and sources
     conn = desdb.Connection()
@@ -30,28 +30,51 @@ if __name__ == '__main__':
     cf.load(srclist=True)
     srclist = cf.srclist
     DESDATA = os.environ['DESDATA']
-    
-    # download
-    def _downit(dst):
-        pth,nm = os.path.split(dst)
-        rcmd = 'mkdir -p %s' % pth
-        err = subprocess.call(rcdm,shell=True)
-        src = dst.replace(DESDATA,'${DESREMOTE}')
-        rcmd = cmd % (src,dst)
-        err = subprocess.call(rcdm,shell=True)
-    
+
+    # first collect files
+    fnames = []
+
+    # helper function
+    def _add_to_fnames(dst):
+        fnames.append(os.path.expandvars(dst.replace(DESDATA,'${DESREMOTE}')))
+
     # coadd
-    _downit(cf['image_url'])
+    _add_to_fnames(cf['image_url'])
     seg_url = cf['image_url'].replace('/%s/coadd/' % coadd_run,'/%s/QA/segmap/' % coadd_run).replace('.fits.fz','_seg.fits.fz')
-    _downit(seg_url)
+    _add_to_fnames(seg_url)
     cat_url = cf['image_url'].replace('.fits.fz','_cat.fits')
-    _downit(cat_url)
-    
+    _add_to_fnames(cat_url)
+
     # SE images
     for s in srclist:
-        _downit(s['red_image'])
-        _downit(s['red_bkg'])
-        _downit(s['red_seg'])        
-        
+        _add_to_fnames(s['red_image'].replace('.fits.fz','_psfcat.psf'))
+        _add_to_fnames(s['red_image'])
+        _add_to_fnames(s['red_bkg'])
+        _add_to_fnames(s['red_seg'])
+
         if 'astro_refine' in s:
-            _downit(s['astro_refine'])
+            _add_to_fnames(s['astro_refine'])
+    
+    # write to temp file
+    fd,tfile = tempfile.mkstemp()
+    os.close(fd)
+    try:
+        with open(tfile,'w') as fp:
+            for ff in fnames:
+                fp.write(ff+'\n')
+
+        # download
+        cmd ='wget -x --input-file=%s -nH --cut-dirs=2 --directory-prefix=${DESDATA} --timestamping'
+        rcmd = cmd % tfile
+        err = subprocess.check_call(rcmd,shell=True)
+    except:
+        raise
+    finally:
+        # remove the temp file
+        try:
+            os.remove(tfile)
+        except:
+            pass
+
+
+
