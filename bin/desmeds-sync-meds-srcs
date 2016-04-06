@@ -44,7 +44,7 @@ if __name__ == '__main__':
     _add_to_fnames(seg_url)
     cat_url = cf['image_url'].replace('.fits.fz','_cat.fits')
     _add_to_fnames(cat_url)
-    psf_url = cf['image_url'].replace('.fits.fz','_psfcat.fits')
+    psf_url = cf['image_url'].replace('.fits.fz','_psfcat.psf')
     _add_to_fnames(psf_url)
 
     # SE images
