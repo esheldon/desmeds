@@ -18,10 +18,18 @@ parser.add_argument('band',help='bandpass')
 parser.add_argument('-c','--check',action='store_true',
                     help="check that files exist")
 
+parser.add_argument('--extra',
+                    help="extra commands for script")
+
+
 def main():
     args=parser.parse_args()
 
-    generator = desmeds.batch.Generator(args.medsconf, check=args.check)
+    generator = desmeds.batch.Generator(
+        args.medsconf,
+        check=args.check,
+        extra=args.extra,
+    )
     generator.load_coadd(args.coadd_run, args.band)
     generator.write_all()
 

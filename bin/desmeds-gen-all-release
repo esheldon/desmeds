@@ -1,13 +1,4 @@
 #!/usr/bin/env python
-"""
-    %prog [options] medsconf
-
-Generate scripts, idfiles, srclists etc. for everything
-specified by the medsconf
-
-medsconf is a meds config id, e.g. 013
-"""
-
 from __future__ import print_function
 import os,sys
 import desdb
@@ -16,38 +7,45 @@ from desmeds import files
 
 
 
-from optparse import OptionParser
-parser = OptionParser(__doc__)
+from argparse import ArgumentParser
 
-parser.add_option('--clobber',action='store_true',
-                  help=("don't write scripts even if they already "
-                        "exist; useful when doing slow check"))
-parser.add_option('--missing',action='store_true',
-                  help="only write if meds file does not exist")
+parser=ArgumentParser()
 
-parser.add_option('-b','--bands',default=None,
-                  help="bands to do, default all")
+parser.add_argument('medsconf',
+                    help="meds configuration identifier")
+parser.add_argument('--clobber',action='store_true',
+                    help=("don't write scripts even if they already "
+                          "exist; useful when doing slow check"))
+parser.add_argument('--missing',action='store_true',
+                    help="only write if meds file does not exist")
 
-parser.add_option('-c','--check',action='store_true',
-                  help="check that files exist")
+parser.add_argument('-b','--bands',default=None,
+                    help="bands to do, default all. csv")
+
+parser.add_argument('-c','--check',action='store_true',
+                    help="check that files exist")
+
+parser.add_argument('--extra',
+                    help="extra commands for script")
+
 
 _df=desdb.DESFiles()
 
 
 def main():
-    options, args = parser.parse_args(sys.argv[1:])
-    if len(args) < 1:
-        parser.print_help()
-        sys.exit(45)
+    args=parser.parse_args()
 
-    medsconf=args[0]
-    gen=desmeds.batch.Generator(medsconf, check=options.check)
+    gen=desmeds.batch.Generator(
+        args.medsconf,
+        check=args.check,
+        extra=args.extra,
+    )
 
     # try to make meds files for all the 'bands', but only
     # for tiles 'withbands'
     conf=gen.conf
-    if options.bands is not None:
-        bands=options.bands.split(',')
+    if args.bands is not None:
+        bands=args.bands.split(',')
         mbands=conf['bands']
         for band in bands:
             if band not in mbands:
@@ -89,15 +87,15 @@ def main():
                                    tilename=tilename,
                                    band=band)
 
-            meds_file = files.get_meds_file(medsconf,
+            meds_file = files.get_meds_file(args.medsconf,
                                             coadd_run,
                                             band)
-            wq_file = files.get_meds_wq_file(medsconf,
+            wq_file = files.get_meds_wq_file(args.medsconf,
                                              coadd_run,
                                              band)
 
 
-            if options.missing and os.path.exists(meds_file):
+            if args.missing and os.path.exists(meds_file):
                 print("skipping because meds file already exists")
                 continue
 
@@ -105,14 +103,14 @@ def main():
                 print("skipping because coadd does not exist for this band")
                 continue
 
-            if not options.clobber and os.path.exists(wq_file):
+            if not args.clobber and os.path.exists(wq_file):
                 print("skipping because wq file exists")
                 continue
 
             nmissing += gen.load_coadd(coadd_run, band)
             gen.write_all()
 
-    if options.check:
+    if args.check:
         print("total missing:",nmissing)
 main()
 

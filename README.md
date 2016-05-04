@@ -35,7 +35,7 @@ An example testbed is `medstb-y1a1-v01d.yaml`. Note you need the environment var
 desmeds-gen-all-release medsconf
 ```
 The above generates all the [wq](https://github.com/esheldon/wq) submit scripts.
-The `wq` submit scripts call `des-make-meds`
+The `wq` submit scripts call `desmeds-make-meds`
 
 ## installation
 ```bash

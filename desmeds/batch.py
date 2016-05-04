@@ -9,6 +9,7 @@ from . import files
 
 _wq_make_stubby_template="""
 command: |
+    %(extra)s
     medsconf="%(medsconf)s"
     coadd_run="%(coadd_run)s"
     band="%(band)s"
@@ -19,14 +20,16 @@ job_name: %(job_name)s
 
 _wq_make_meds_template="""
 command: |
+    %(extra)s
     medsconf="%(medsconf)s"
     coadd_run="%(coadd_run)s"
     band="%(band)s"
     desmeds-make-meds --from-stubby $medsconf $coadd_run $band
 
 job_name: %(job_name)s
-mode: bynode
+N: 2
 """
+#mode: bynode
 
 def release_is_sva1(release):
     if isinstance(release,basestring):
@@ -39,13 +42,15 @@ def release_is_sva1(release):
     return False
 
 class Generator(object):
-    def __init__(self, medsconf, check=False):
+    def __init__(self, medsconf, check=False, extra=None):
 
         self.medsconf=medsconf
+        self.extra=extra
+        self.check=check
+
         self.conf=files.read_meds_config(medsconf)
         self.conn=desdb.Connection()
 
-        self.check=check
 
         self.df=desdb.files.DESFiles()
 
@@ -103,6 +108,11 @@ class Generator(object):
            'job_name':job_name,
            'coadd_run':self.cf['coadd_run'],
            'band':self.cf['band']}
+
+        if self.extra is not None:
+            d['extra']=self.extra
+        else:
+            d['extra']='# no extra commands'
 
         if type=='stubby':
             wq_file = files.get_meds_stubby_wq_file(self.medsconf,
