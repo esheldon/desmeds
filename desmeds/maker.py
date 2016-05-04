@@ -543,9 +543,10 @@ class DESMEDSMaker(dict):
             ('input_col','f8'),
         ]
 
-        # for converting fwhm and sigma for a gaussian
+        # -qz 4.0 instead of -q 4.0
+        # this means preserve zero pixels
         self['fpack_command'] = \
-            'fpack -t %d,%d {fname}' % tuple(self['fpack_dims'])
+            'fpack -qz 4.0 -t %d,%d {fname}' % tuple(self['fpack_dims'])
 
     def _load_config(self, medsconf):
         """
