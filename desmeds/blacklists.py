@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+from __future__ import print_function
 import os
 import sys
 import numpy as np
@@ -29,6 +29,13 @@ def read_blacklist_as_dict(fname):
 
     return d
 
+def get_corrupted_blacklist():
+    subdirs=['EXTRA','blacklists']
+    dir=desdb.files.get_dir_generic(subdirs)
+
+    fname=os.path.join(dir, 'corrupted-y1.txt')
+    return read_blacklist_as_dict(fname)
+
 def get_exp_blacklists():
     subdirs=['EXTRA','blacklists']
     dir=desdb.files.get_dir_generic(subdirs)
@@ -58,6 +65,20 @@ def get_exp_blacklists():
                          'flag': 2**14}
 
     return ldict
+
+def remove_corrupted(srclist):
+    blacklist = get_corrupted_blacklist()
+
+    new_srclist=[]
+    for s in srclist:
+        if s['bigind'] not in blacklist:
+            new_srclist.append( s )
+        else:
+            print("    found in corrupted blacklist")
+
+    print("kept %d/%d after "
+          "removing corrupted" % (len(new_srclist),len(srclist)))
+    return new_srclist
 
 def add_blacklist_flags(srclist):
     """

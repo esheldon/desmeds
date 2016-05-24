@@ -244,10 +244,17 @@ class DESMEDSMaker(dict):
         """
         srclist = self.cf.srclist
 
+        blacklists.add_bigind(srclist)
+
+        srclist = blacklists.remove_corrupted(srclist)
+
+        if len(srclist)==0:
+            raise RuntimeError("all src were in the corrupted list")
+
         # do blacklists
         for s in srclist:
             s['flags'] = 0
-        blacklists.add_bigind(srclist)
+
         blacklists.add_blacklist_flags(srclist)
 
         # read astrom header
