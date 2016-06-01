@@ -1,5 +1,6 @@
 from . import maker
 from .maker import DESMEDSMaker
+from .maker import DESMEDSMakerDESDM
 
 from . import files
 from . import util
