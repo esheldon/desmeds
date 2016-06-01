@@ -1,8 +1,13 @@
 from __future__ import print_function
 import os
-import desdb
 import yaml
 import tempfile
+
+# desdb is not needed in all scenarios
+try:
+    import desdb
+except ImportError:
+    pass
 
 def get_desdata():
     """

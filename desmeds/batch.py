@@ -2,10 +2,16 @@ from __future__ import print_function
 import sys
 import os
 import numpy
-import desdb
 import fitsio
 
 from . import files
+
+# desdb is not needed in all scenarios
+try:
+    import desdb
+except ImportError:
+    pass
+
 
 _wq_make_stubby_template="""
 command: |

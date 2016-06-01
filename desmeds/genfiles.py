@@ -5,10 +5,15 @@ from __future__ import print_function
 import sys
 import os
 import numpy
-import desdb
 import fitsio
 
 from . import files
+
+try:
+    import desdb
+except ImportError:
+    pass
+
 
 _wq_template="""
 command: |
