@@ -6,6 +6,7 @@ scripts=[
     'desmeds-gen-all',
     'desmeds-gen-all-release',
     'desmeds-make-stubby-meds',
+    'desmeds-make-stubby-meds-desdm',
     'desmeds-make-meds',
     'desmeds-rsync-meds-srcs',
     'desmeds-sync-meds-srcs',
