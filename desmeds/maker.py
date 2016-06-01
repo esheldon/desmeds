@@ -161,14 +161,17 @@ class DESMEDSMaker(dict):
         # bmask is in same file as image, or none for coadd
         # don't set bmask for coadd
         image_info['bmask_ext'][ind] = self['coadd_bmask_ext']
-        if self['coadd_bmask_ext'] == -1:
+        if self['coadd_bmask_ext'] == -1 or self['coadd_bmask_ext']=='none':
             image_info['bmask_path'][ind] = ''
         else:
             image_info['bmask_path'][ind] = impath
 
         # coadds are made from background subtracted images, leave empty string
         image_info['bkg_path'][ind] = ''
-        image_info['bkg_ext'][ind] = -1
+        if self['coadd_bkg_ext']=="none":
+            image_info['bkg_ext'][ind] = "none"
+        else:
+            image_info['bkg_ext'][ind] = -1
 
         image_info['seg_path'][ind] = segpath
         image_info['seg_ext'][ind] = self['coadd_seg_ext']
@@ -217,6 +220,24 @@ class DESMEDSMaker(dict):
         scale = 10.0**( 0.4*(self['magzp_ref']-magzp) )
         return scale
 
+    def _get_ext_len(self):
+        if isinstance(self['coadd_image_ext'],basestring):
+            lens=[]
+            for key in self:
+                if '_ext' in key:
+                    ext=self[key]
+                    if not isinstance(ext, basestring):
+                        raise ValueError("ext %s not a string, "
+                                         "if one ext is a string, all "
+                                         "must be" % ext)
+                    lens.append( len(ext) )
+
+            ext_len=max(lens)
+
+        else:
+            ext_len=None
+        return ext_len
+
     def _get_image_info_struct(self,srclist,wcs_json):
         """
         build the data type for the image info structure. We use
@@ -235,7 +256,14 @@ class DESMEDSMaker(dict):
 
         wcs_len = reduce(lambda x,y: max(x,len(y)),wcs_json,0)
 
-        return get_image_info_struct(nsrc+1, slen, wcs_len=wcs_len)
+        ext_len=self._get_ext_len()
+
+        return get_image_info_struct(
+            nsrc+1,
+            slen,
+            wcs_len=wcs_len,
+            ext_len=ext_len,
+        )
 
     def _get_wcs_json(self,srclist):
         """
@@ -605,6 +633,9 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
     all inputs are explicit rather than relying on database
     queries
 
+    No "stubby" meds file is created, because DESDM does
+    not allow pipelines
+
     parameters
     ----------
     medconf: string
@@ -633,9 +664,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
     """
     def __init__(self,
                  medsconf,
-                 fileconf,
-                 do_inputs=True,
-                 do_meds=True):
+                 fileconf):
 
         self.medsconf=medsconf
         self.fileconf=fileconf
@@ -645,13 +674,24 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         self._set_extra_config('none', self.file_dict['band'])
 
-        self.do_inputs = do_inputs
-        self.do_meds = do_meds
-
         # not relevant for this version
         self.DESDATA = 'rootless'
 
-    def _query_coadd_info(self):
+    def go(self):
+        """
+        make the MEDS file
+        """
+
+        self._load_coadd_info()
+        self._read_coadd_cat()
+        self._build_image_data()
+        self._build_meta_data()
+        self._build_object_data()
+
+        self._write_meds_file() # does second pass to write data
+
+
+    def _load_coadd_info(self):
         """
         Mock up the results of querying the database for Coadd
         info
@@ -688,8 +728,6 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         # sort just in case, not needed ever AFIK
         q = numpy.argsort(self.coadd_cat['number'])
         self.coadd_cat = self.coadd_cat[q]
-
-        stop
 
     def _get_srclist(self):
         """
@@ -795,6 +833,24 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         return red_info
 
+    def _get_coadd_objects_ids(self):
+        """
+        mock up the query to the database
+        """
+
+        dt=[
+            ('object_number','i4'),
+            ('coadd_objects_id','i8')
+        ]
+
+        nobj=self.coadd_cat.size
+
+        iddata=numpy.zeros(nobj, dtype=dt)
+        iddata['object_number'] = 1+numpy.arange(nobj)
+        iddata['coadd_objects_id'] = -1
+
+        return iddata
+
     def _get_portable_url(self, file_dict, name):
         """
         We don't have DESDATA defined when DESDM is running
@@ -824,4 +880,18 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         with open(fileconf) as fobj:
             self.file_dict=yaml.load( fobj )
 
+    def _write_meds_file(self):
+        """
+        write the data using the MEDSMaker
+        """
 
+        maker=meds.MEDSMaker(
+            self.obj_data,
+            self.image_info,
+            config=self,
+            meta_data=self.meta_data,
+        )
+
+        fname=self.file_dict['meds_url']
+        print("writing MEDS file:",fname)
+        maker.write(fname)
