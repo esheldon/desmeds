@@ -3,7 +3,6 @@ DESMEDSMaker
     - make inputs for a MEDSMaker (in the meds repo)
 
 TODO:
-    - bit masks for coadds?
     - extract the filename used for ids as a special field The base name
     without the .fz, if present
 
@@ -19,7 +18,6 @@ import yaml
 
 import fitsio
 import esutil as eu
-import desdb
 
 import meds
 from meds.util import \
@@ -38,6 +36,13 @@ from .files import \
         TempFile, \
         StagedInFile, \
         StagedOutFile
+
+# desdb is not needed in all scenarios
+try:
+    import desdb
+except ImportError:
+    pass
+
 
 fwhm_fac = 2*sqrt(2*log(2))
 

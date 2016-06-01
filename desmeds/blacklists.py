@@ -2,7 +2,13 @@ from __future__ import print_function
 import os
 import sys
 import numpy as np
-import desdb
+
+# desdb is not needed in all scenarios
+try:
+    import desdb
+except ImportError:
+    pass
+
 
 def read_blacklist(fname):
     import esutil as eu
