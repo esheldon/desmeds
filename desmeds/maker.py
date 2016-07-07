@@ -243,11 +243,18 @@ class DESMEDSMaker(dict):
             ext_len=None
         return ext_len
 
-    def _get_image_info_struct(self,srclist,wcs_json):
+    def _get_filename_as_id(self, path):
+        iid=os.path.basename(path)
+        iid = iid.replace('.fz','')
+        return iid
+
+    def _get_image_id_len(self, junk):
         """
-        build the data type for the image info structure. We use
-        the maximum string size rather than variable length strings
+        default do integer ids
         """
+        return None
+
+    def _get_path_dtype_len(self, srclist):
         nsrc = len(srclist)
         slen = len(self._get_portable_url(self.cf,'image_url'))
         for s in srclist:
@@ -257,15 +264,30 @@ class DESMEDSMaker(dict):
                 len( self._get_portable_url(s,'red_bkg') ),
                 len( self._get_portable_url(s,'red_seg') ),
             )
+
+        return slen
+
+    def _get_image_info_struct(self,srclist,wcs_json):
+        """
+        build the data type for the image info structure. We use
+        the maximum string size rather than variable length strings
+        """
         #sfmt = 'S%d' % slen
+
+        slen = self._get_path_dtype_len(srclist)
 
         wcs_len = reduce(lambda x,y: max(x,len(y)),wcs_json,0)
 
         ext_len=self._get_ext_len()
 
+        image_id_len=self._get_image_id_len(srclist)
+
+        nsrc = len(srclist)
+
         return get_image_info_struct(
             nsrc+1,
             slen,
+            image_id_len=image_id_len,
             wcs_len=wcs_len,
             ext_len=ext_len,
         )
@@ -652,7 +674,6 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             band: band in string form
             coadd_image_url: string
             coadd_seg_url: string
-            coadd_image_id: string (no longer int for y3+)
             coadd_magzp: float
             ngwint_flist: string
                 path to the ngwint file list
@@ -695,6 +716,19 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         self._write_meds_file() # does second pass to write data
 
+    def _get_image_id_len(self, srclist):
+        """
+        for y3 using string ids
+        """
+        image_id_len=len(self.cf['image_id'])
+
+        slen = len(self._get_portable_url(self.cf,'image_url'))
+        for s in srclist:
+            tlen = len(s['id'])
+            if tlen > image_id_len:
+                image_id_len = tlen
+
+        return image_id_len
 
     def _load_coadd_info(self):
         """
@@ -706,9 +740,12 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         fd=self.file_dict
         cf={}
 
+        iid = self._get_filename_as_id(fd['coadd_image_url'])
+
         cf['image_url'] = fd['coadd_image_url']
         cf['seg_url']   = fd['coadd_seg_url']
-        cf['image_id']  = fd['coadd_image_id']
+        cf['image_id']  = iid
+
         # probably from from header MAGZERO
         cf['magzp']     = fd['coadd_magzp']
 
@@ -811,13 +848,14 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         print("reading ngwint list and loading headers:",fname)
 
         red_info=[]
-        sid=0
         with open(fname) as fobj:
             for line in fobj:
 
                 path, magzp = self._extract_ngwint_line(line)
                 if path==None:
                     continue
+
+                sid = self._get_filename_as_id(path)
 
                 # now mock up the structure of the Coadd.srclist
 
@@ -833,8 +871,6 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                 }
 
                 red_info.append(s)
-
-                sid += 1
 
         return red_info
 
