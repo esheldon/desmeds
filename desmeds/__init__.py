@@ -7,3 +7,5 @@ from . import util
 from . import blacklists
 from . import defaults
 from . import batch
+
+__version__="0.9.0"
