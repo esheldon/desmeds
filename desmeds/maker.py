@@ -675,8 +675,8 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             coadd_image_url: string
             coadd_seg_url: string
             coadd_magzp: float
-            ngwint_flist: string
-                path to the ngwint file list
+            nwgint_flist: string
+                path to the nwgint file list
             seg_flist: string
                 path to the seg file list
             bkg_flist: string
@@ -782,7 +782,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         get all the necessary information for each source image
         """
         # this is a list of dicts
-        srclist=self._load_ngwint_info()
+        srclist=self._load_nwgint_info()
         nepoch = len(srclist)
 
         # now add in the other file types
@@ -790,10 +790,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         seg_info=self._read_generic_flist('seg_flist')
 
         if len(bkg_info) != nepoch:
-            raise ValueError("bkg list has %d elements, ngwint "
+            raise ValueError("bkg list has %d elements, nwgint "
                              "list has %d elements" % (len(bkg_info),nepoch))
         if len(seg_info) != nepoch:
-            raise ValueError("seg list has %d elements, ngwint "
+            raise ValueError("seg list has %d elements, nwgint "
                              "list has %d elements" % (len(seg_info),nepoch))
 
         for i,src in enumerate(srclist):
@@ -819,9 +819,9 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                 flist.append(line)
         return flist
 
-    def _extract_ngwint_line(self, line):
+    def _extract_nwgint_line(self, line):
         """
-        the ngwint (red image) lines are 
+        the nwgint (red image) lines are 
             path magzp
         """
         line=line.strip()
@@ -831,7 +831,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         ls=line.split()
         if len(ls) != 2:
             raise ValueError("got %d elements for line in "
-                             "ngwint list: '%s'" % line)
+                             "nwgint list: '%s'" % line)
 
         path=ls[0]
         magzp=float(ls[1])
@@ -839,19 +839,19 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         return path, magzp
 
 
-    def _load_ngwint_info(self):
+    def _load_nwgint_info(self):
         """
         Load all meta information needed from the
         ngmwint files
         """
-        fname=self.file_dict['ngwint_flist']
-        print("reading ngwint list and loading headers:",fname)
+        fname=self.file_dict['nwgint_flist']
+        print("reading nwgint list and loading headers:",fname)
 
         red_info=[]
         with open(fname) as fobj:
             for line in fobj:
 
-                path, magzp = self._extract_ngwint_line(line)
+                path, magzp = self._extract_nwgint_line(line)
                 if path==None:
                     continue
 
@@ -887,8 +887,16 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         nobj=self.coadd_cat.size
 
         iddata=numpy.zeros(nobj, dtype=dt)
-        iddata['object_number'] = 1+numpy.arange(nobj)
-        iddata['coadd_objects_id'] = -1
+
+        idmap = fitsio.read(
+            self.file_dict['coadd_object_map'],
+            lower=True,
+        )
+
+        s=numpy.argsort(idmap['object_number'])
+
+        iddata['object_number']    = idmap['object_number'][s]
+        iddata['coadd_objects_id'] = idmap['id'][s]
 
         return iddata
 
