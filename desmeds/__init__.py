@@ -1,6 +1,6 @@
 from . import maker
 from .maker import DESMEDSMaker
-from .maker import DESMEDSMakerDESDM
+from .desdm_maker import DESMEDSMakerDESDM
 
 from . import files
 from . import util
