@@ -612,7 +612,10 @@ class StagedOutFile(object):
         if self.is_temp and not self.was_staged_out:
             if not os.path.exists(self.path):
                 if self.must_exist:
-                    raise IOError("temporary file not found:",self.path)
+                    mess = "temporary file not found: %s" % self.path
+                    raise IOError(mess)
+                else:
+                    return
 
             if os.path.exists(self.final_path):
                 print("removing existing file:",self.final_path)
