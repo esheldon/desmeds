@@ -442,7 +442,11 @@ class DESMEDSMaker(dict):
         self.obj_data = get_meds_input_struct(nobj,
                                               extra_fields=extra_fields)
 
-        self.obj_data['number'] = self.coadd_cat['number']
+        eu.numpy_util.copy_fields(
+            self.coadd_cat,
+            self.obj_data,
+        )
+        #self.obj_data['number'] = self.coadd_cat['number']
 
         input_row = self.coadd_cat[self['row_name']]
         input_col = self.coadd_cat[self['col_name']]
