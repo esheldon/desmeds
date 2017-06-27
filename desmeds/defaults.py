@@ -44,11 +44,6 @@ default_config = {
     'min_box_size': 32,
     'max_box_size': 256,
 
-    # minimum weight; to account for old fpack that did not
-    # preserve zeros.  Anything less than this is set to
-    # zero identically
-    'min_weight': 1.0e-4,
-
     # astrometry gets refined during coaddition
     'use_astro_refine': True,
 
