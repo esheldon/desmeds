@@ -3,6 +3,7 @@ from .maker import DESMEDSMaker
 from .desdm_maker import DESMEDSMakerDESDM
 
 from . import files
+from . import coaddinfo
 from . import util
 from . import blacklists
 from . import defaults
