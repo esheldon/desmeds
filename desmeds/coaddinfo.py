@@ -1,50 +1,76 @@
 from __future__ import print_function
 import os
+import shutil
 import numpy
 import fitsio
-import easyaccess as ea
+from . import files
 
 class Coadd(object):
-    def __init__(self, campaign='Y3A1_COADD'):
+    """
+    information for coadds.  Can use the download() method to copy
+    to the local disk heirchy
+    """
+    def __init__(self, campaign='Y3A1_COADD', src=None, sources=None):
         self.campaign=campaign.upper()
+        self._set_cache()
+        self.sources=sources
 
-    def download(self, tilename, band=None):
+    def get_info(self, tilename, band):
         """
-        download a single tile
+        get info for the specified tilename and band
+
+        if sources were sent to the constructor, add source info as well
+        """
+        info = self.cache.get_info(tilename, band)
+
+        # add full path info
+        self._add_full_paths(info)
+
+        sources=self.get_sources()
+        if sources is not None:
+            self._add_src_info(info, tilename, band)
+
+        return info
+
+
+    def remove(self, tilename):
+        """
+        remove downloaded files for the specified tile
         """
         info=self.get_info(tilename)
 
-        im_local_dir, im_remote_dir = self._get_dirs(info)
+        dirdict=self._get_all_dirs(info)
+        dirs=dirdict['image']
 
-        cat_local_dir=extract_cat_dir(im_local_dir)
-        cat_remote_dir=extract_cat_dir(im_remote_dir)
+        if os.path.exists(dirs['local_dir']):
+            # we actually want go down the tree a bit
 
-        dirs = [
-            ('image',im_local_dir,im_remote_dir),
-            ('cat',cat_local_dir,cat_remote_dir),
-        ]
-        for type, local_dir, remote_dir in dirs:
+            base_dir=os.path.dirname(dirs['local_dir'])
+            print("removing directory:",base_dir)
+            shutil.rmtree(base_dir)
+            #print("not actually removing")
 
-            if not os.path.exists(local_dir):
-                print("making local directory:",local_dir)
-                os.makedirs(local_dir)
+    def download(self, tilename):
+        """
+        download a single tile, all bands
+        """
 
-            if band is not None:
-                if type=='cat':
-                    remote_pattern='%s/*_%s_cat.fits' % (remote_dir,band)
-                else:
-                    remote_pattern='%s/*_%s.fits*' % (remote_dir,band)
-            else:
-                remote_pattern='%s/' % remote_dir
+        info=self.cache.get_info(tilename)
+        dirdict=self._get_all_dirs(info)
+
+        for type,dirs in dirdict.iteritems():
+
+            if not os.path.exists(dirs['local_dir']):
+                print("making local directory:",dirs['local_dir'])
+                os.makedirs(dirs['local_dir'])
 
             cmd = r"""
     rsync \
         -avP \
         --password-file $DES_RSYNC_PASSFILE \
-        {remote_pattern} \
-        {local_dir}/
-        """.format(remote_pattern=remote_pattern,
-                   local_dir=local_dir)
+        %(remote_dir)s/ \
+        %(local_dir)s/  """ % dirs
+
             cmd = os.path.expandvars(cmd)
 
             print(cmd)
@@ -53,89 +79,185 @@ class Coadd(object):
             if ret != 0:
                 raise RuntimeError("rsync failed")
 
-
-    def get_info(self, tilename, band='i'):
+    def _add_full_paths(self, info):
         """
-        get info for the specified tilename and band
+        seg maps don't have .fz extension for coadd
+        """
+        dirdict=self._get_all_dirs(info)
+        info['image_path'] = os.path.join(
+            dirdict['image']['local_dir'],
+            info['filename']+info['compression'],
+        )
+        info['cat_path'] = os.path.join(
+            dirdict['cat']['local_dir'],
+            info['filename'].replace('.fits','_cat.fits'),
+        )
+        info['seg_path'] = os.path.join(
+            dirdict['seg']['local_dir'],
+            info['filename'].replace('.fits','_segmap.fits'),
+        )
+
+
+    def get_sources(self):
+        """
+        get the source list
+        """
+        return self.sources
+
+    def _add_src_info(self, info, tilename, band):
+        """
+        get path info for the input single-epoch sources
         """
 
-        key = self.make_key(tilename, band)
+        sources=self.get_sources()
+        src_info = self.sources.get_info(tilename, band=band)
 
-        cache = self.get_cache()
-        if key not in cache:
-            raise ValueError("%s not found in cache" % key)
-        return cache[key]
+        self._add_head_full_paths(info, src_info)
 
-    def get_cache(self):
+        info['src_info'] = src_info
+
+    def _add_head_full_paths(self, info, src_info):
+        dirdict=self._get_all_dirs(info)
+
+        # this is a full path
+        auxdir=dirdict['aux']['local_dir']
+
+        head_front=info['filename'][0:-7]
+
+        for src in src_info:
+            fname=src['filename']
+
+            fid = fname[0:15]
+
+            head_fname = '%s_%s_scamp.head' % (head_front, fid)
+
+            src['head_path'] = os.path.join(
+                auxdir,
+                head_fname,
+            )
+
+
+
+
+    def _set_cache(self):
+        self.cache = CoaddCache(self.campaign)
+
+    def _get_all_dirs(self, info):
+        dirs={}
+
+        path=info['path']
+        dirs['image'] = self._get_dirs(path)
+        dirs['cat'] = self._get_dirs(path, type='cat')
+        dirs['aux'] = self._get_dirs(path, type='aux')
+        dirs['seg'] = self._get_dirs(path, type='seg')
+        return dirs
+
+    def _get_dirs(self, path, type=None):
+        local_dir = '$DESDATA/%s' % path
+        remote_dir = '$DESREMOTE_RSYNC/%s' % path
+
+        local_dir=os.path.expandvars(local_dir)
+        remote_dir=os.path.expandvars(remote_dir)
+
+        if type is not None:
+            local_dir=self._extract_alt_dir(local_dir,type)
+            remote_dir=self._extract_alt_dir(remote_dir,type)
+
+        return {
+            'local_dir':local_dir,
+            'remote_dir':remote_dir,
+        }
+
+    def _extract_alt_dir(self, path, type):
         """
-        get the cache
+        extract the catalog path from an image path, e.g.
+
+        OPS/multiepoch/Y3A1/r2577/DES0215-0458/p01/coadd/
+
+        would yield
+
+        OPS/multiepoch/Y3A1/r2577/DES0215-0458/p01/{type}/
+        """
+
+        ps = path.split('/')
+
+        assert ps[-1]=='coadd'
+
+        ps[-1] = type
+        return '/'.join(ps)
+
+
+class CoaddCache(object):
+    """
+    cache to hold path info for the coadds
+    """
+    def __init__(self, campaign='Y3A1_COADD'):
+        self.campaign=campaign.upper()
+
+    def get_data(self):
+        """
+        get the full cache data
         """
         if not hasattr(self,'_cache'):
             self.load_cache()
 
         return self._cache
 
+    def get_info(self, tilename, band='i'):
+        """
+        get info for the specified tilename and band
+        """
+
+
+        cache = self.get_data()
+
+        key = make_cache_key(tilename, band)
+        w,=numpy.where(cache['key'] == key)
+        if w.size == 0:
+            raise ValueError("%s not found in cache" % key)
+
+        c=cache[w[0]]
+
+        tilename=c['tilename'].strip()
+        path=c['path'].strip()
+        filename=c['filename'].strip()
+        band=c['band'].strip()
+        comp=c['compression'].strip()
+
+        entry = {
+            'tilename':tilename,
+            'filename':filename,
+            'compression':comp,
+            'path':path,
+            'band':band,
+            'pfw_attempt_id':c['pfw_attempt_id'],
+        }
+
+        return entry
+
     def load_cache(self):
         """
         load the cache into memory
         """
 
-        fname=self.get_cache_file()
+        fname=self.get_filename()
         if not os.path.join(fname):
             self.make_cache()
 
         print("loading cache:",fname)
-        fcache=fitsio.read(fname)
-
-        cache={}
-        for i in xrange(fcache.size):
-            c = fcache[i]
-
-            tilename=c['tilename'].strip()
-            path=c['path'].strip()
-            filename=c['filename'].strip()
-            band=c['band'].strip()
-            comp=c['compression'].strip()
-            
-            key=self.make_key(tilename, band)
-            cache[key] = {
-                'tilename':tilename,
-                'filename':filename,
-                'compression':comp,
-                'path':path,
-                'band':band,
-                'pfw_attemp_id':c['pfw_attemp_id'],
-            }
-
-
-        self._cache=cache
-
-    def make_key(self, tilename, band):
-        return '%s-%s' % (tilename, band)
+        self._cache = fitsio.read(fname)
 
     def make_cache(self):
         """
         cache all the relevant information for this campaign
         """
 
-        fname=self.get_cache_file()
+        fname=self.get_filename()
 
         print("writing to:",fname)
-        q = _QUERY_ALL_TEMPLATE.format(
-            campaign=self.campaign,
-        )
+        curs = self._doquery()
 
-        curs = self._doquery(q)
-
-        dt=[
-            ('tilename','S12'),
-            ('path','S60'),
-            ('filename','S35'),
-            ('compression','S5'),
-            ('band','S1'),
-            ('pfw_attemp_id','i8'),
-
-        ]
+        dt=self._get_dtype()
 
         info=numpy.fromiter(curs, dtype=dt)
 
@@ -143,20 +265,27 @@ class Coadd(object):
         print("writing to:",fname)
         fitsio.write(fname, info, clobber=True)
 
-    def get_cache_file(self):
+    def _get_dtype(self):
+        return [ 
+            ('key','S14'),
+            ('tilename','S12'),
+            ('path','S65'),
+            ('filename','S40'),
+            ('compression','S3'),
+            ('band','S1'),
+            ('pfw_attempt_id','i8'),
+
+        ]
+
+    def get_filename(self):
         """
         path to the cache
         """
-        dir=os.path.expandvars('$DESDATA/lists')
+        return files.get_coadd_cache_file(self.campaign)
 
-        fname='%s-coadd-cache.fits' % self.campaign
+    def _doquery(self):
 
-        fname = os.path.join(dir, fname)
-        return fname
-
-
-    def _doquery(self, query):
-
+        query = self._get_query()
         print(query)
         conn=self.get_conn()
         curs = conn.cursor()
@@ -164,80 +293,31 @@ class Coadd(object):
 
         return curs
 
-    def _get_dirs(self, info):
-        local_dir = '$DESDATA/%(path)s' % info
-        remote_dir = '$DESREMOTE_RSYNC/%(path)s' % info
-
-        local_dir=os.path.expandvars(local_dir)
-        remote_dir=os.path.expandvars(remote_dir)
-
-        return local_dir, remote_dir
-
-    def _make_paths(self, info):
-        tpath = '%(path)s/%(filename)s%(compression)s' % info
-
-        local_path = '$DESDATA/%s' % tpath
-        remote_path = '$DESREMOTE_RSYNC/%s' % tpath
-
-        #local_path = os.path.expandvars(local_path)
-        #remote_path = os.path.expandvars(remote_path)
-
-        return local_path, remote_path
+    def _get_query(self):
+        query = _QUERY_COADD_TEMPLATE.format(
+            campaign=self.campaign,
+        )
+        return query
 
     def get_conn(self):
         if not hasattr(self, '_conn'):
             self._make_conn()
 
         return self._conn
+
     def _make_conn(self):
+        import easyaccess as ea
         self._conn=ea.connect(section='desoper')
 
-def extract_cat_dir(path):
-    """
-    extract the catalog path from an image path, e.g.
 
-    OPS/multiepoch/Y3A1/r2577/DES0215-0458/p01/coadd/
-
-    would yield
-
-    OPS/multiepoch/Y3A1/r2577/DES0215-0458/p01/cat/
-    """
-
-    ps = path.split('/')
-
-    assert ps[-1]=='coadd'
-
-    ps[-1] = 'cat'
-    return '/'.join(ps)
+def make_cache_key(tilename, band):
+    return '%s-%s' % (tilename, band)
 
 
-def extract_cat_path(path):
-    """
-    extract the catalog path from an image path, e.g.
 
-    OPS/multiepoch/Y3A1/r2577/DES0215-0458/p01/coadd/DES0215-0458_r2577p01_r.fits.fz
-
-    would yield
-
-    OPS/multiepoch/Y3A1/r2577/DES0215-0458/p01/cat/DES0215-0458_r2577p01_r_cat.fits
-    """
-
-    ps = path.split('/')
-
-    assert ps[-2]=='coadd'
-
-    fname=ps[-1]
-
-    fname = fname.replace('.fits.fz','.fits')
-    fname = fname.replace('.fits','_cat.fits')
-
-    ps[-2] = 'cat'
-    ps[-1] = fname
-
-    return '/'.join(ps)
-
-_QUERY_ALL_TEMPLATE="""
+_QUERY_COADD_TEMPLATE="""
 select
+    m.tilename || '-' || m.band as key,
     m.tilename as tilename,
     fai.path as path,
     fai.filename as filename,
@@ -256,6 +336,9 @@ where
     and fai.filename=m.filename
     and fai.archive_name='desar2home'\n"""
 
+#
+# not used
+#
 _QUERY_TEMPLATE="""
 select
     fai.path as path,

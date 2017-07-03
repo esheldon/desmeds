@@ -15,6 +15,15 @@ def get_desdata():
     """
     return os.environ['DESDATA']
 
+def get_nwgint_config():
+    """
+    config used for making null weight images
+    """
+    dir=get_desdata()
+    path='OPS/config/multiepoch/Y3A1/v4/Y3A1_v4_coadd_nwgint.config'
+    path=os.path.join(dir, path)
+    return path
+
 def get_config_dir():
     """
     the config directory
@@ -22,6 +31,43 @@ def get_config_dir():
     if 'DESMEDS_CONFIG_DIR' not in os.environ:
         raise RuntimeError("you need to define $DESMEDS_CONFIG_DIR")
     return os.environ['DESMEDS_CONFIG_DIR']
+
+def get_list_dir():
+    """
+    directory holding lists and caches
+    """
+    desdata=get_desdata()
+    return os.path.join(desdata,'lists')
+
+def get_coadd_cache_file(campaign):
+    """
+    cache of coadd information for the given campaign
+
+    parameters
+    ----------
+    campaign: string
+        e.g. 'Y3A1_COADD'
+    """
+    dir=get_list_dir()
+    fname='%s-coadd-cache.fits' % campaign
+
+    fname = os.path.join(dir, fname)
+    return fname
+
+def get_coadd_src_cache_file(campaign):
+    """
+    cache of coadd source information for the given campaign
+
+    parameters
+    ----------
+    campaign: string
+        e.g. 'Y3A1_COADD'
+    """
+    dir=get_list_dir()
+    fname='%s-coadd-src-cache.fits' % campaign
+
+    fname = os.path.join(dir, fname)
+    return fname
 
 def get_meds_config_file(medsconf):
     """

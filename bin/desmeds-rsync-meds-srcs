@@ -13,9 +13,16 @@ parser.add_argument(
     help='tilename to download',
 )
 parser.add_argument(
-    '--band',
+    'band',
     default=None,
-    help='only download files for this band',
+    help=('only download files for this band; '
+          'only applies to downloading single-epoch data')
+)
+
+parser.add_argument(
+    '--remove',
+    action='store_true',
+    help=('remove all download files band'),
 )
 
 
@@ -23,7 +30,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    coadd = desmeds.coaddinfo.Coadd(campaign=args.campaign)
+    sources = desmeds.coaddsrc.CoaddSrc(args.campaign)
 
-    coadd.download(args.tilename, band=args.band)
-
+    if args.remove:
+        sources.remove(args.tilename, args.band)
+    else:
+        sources.download(args.tilename, args.band)
