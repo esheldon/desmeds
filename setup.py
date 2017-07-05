@@ -9,7 +9,7 @@ scripts=[
     'desmeds-make-meds-desdm',
     'desmeds-make-meds',
     'desmeds-rsync-meds-srcs',
-    'desmeds-rsync-meds-coadd',
+    'desmeds-prep-tile',
 ]
 
 scripts=[os.path.join('bin',s) for s in scripts]

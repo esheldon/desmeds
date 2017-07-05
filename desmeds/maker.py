@@ -624,9 +624,11 @@ class DESMEDSMaker(dict):
         set extra configuration parameters that are not user-controlled
         """
 
-        self['coadd_run'] = coadd_run
+        if coadd_run != 'none':
+            self['coadd_run'] = coadd_run
+            self['tilename'] = files.coadd_run_to_tilename(coadd_run)
+
         self['band'] = band
-        self['tilename'] = files.coadd_run_to_tilename(coadd_run)
 
         self['extra_obj_data_fields'] = [
             ('number','i8'),

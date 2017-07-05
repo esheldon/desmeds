@@ -3,7 +3,8 @@ import os
 from os.path import basename
 import numpy
 from numpy import zeros, sqrt, log, vstack, array
-import json
+import subprocess
+import shutil
 import yaml
 
 import fitsio
@@ -38,38 +39,6 @@ fwhm_fac = 2*sqrt(2*log(2))
 
 from .maker import DESMEDSMaker
 
-class Preparator(dict):
-    """
-    class to prepare inputs for the DESDM version
-    of the MEDS maker
-
-    This is not used by DESDM, but is useful for testing
-    outside of DESDM
-    """
-    def __init__(self, medsconf, tilename, band):
-        self._load_medsconf(medsconf)
-        self['tilename']=tilename
-        self['band']=band
-
-    def go(self):
-        self.download()
-
-    def download(self):
-        from .coaddinfo import Coadd
-        from .coaddsrc import CoaddSrc
-
-        c=Coadd(campaign=self['campaign'])
-        csrc=CoaddSrc(campaign=self['campaign'])
-
-        c.download(self['tilename'])
-        csrc.download(self['tilename'], self['band'])
-
-    def _load_medsconf(self, medsconf):
-        with open(medsconf) as fobj:
-            conf=yaml.load( fobj )
-
-        self.update(conf)
-
 class DESMEDSMakerDESDM(DESMEDSMaker):
     """
     This is the class for use by DESDM.  For this version,
@@ -97,6 +66,8 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                 path to the seg file list
             bkg_flist: string
                 path to the bkg file list
+            meds_url: string
+                path to the output meds file
     """
     def __init__(self,
                  medsconf,
@@ -321,6 +292,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
     def _load_config(self, medsconf):
         """
         load the default config, then load the input config
+
+        note desdm names things randomly so we can't assert
+        any consistency between the internal config name
+        and the file name
         """
 
         self.update(default_config)
@@ -353,5 +328,242 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         fname=self.file_dict['meds_url']
         print("writing MEDS file:",fname)
-        maker.write(fname)
+
+        use_tempdir=self.get('use_tempdir', False)
+
+        if use_tempdir:
+            tmpdir=files.get_temp_dir()
+            with StagedOutFile(fname,tmpdir=tmpdir) as sf:
+                maker.write(sf.path)
+        else:
+            maker.write(fname)
+
+class Preparator(dict):
+    """
+    class to prepare inputs for the DESDM version
+    of the MEDS maker
+
+    This is not used by DESDM, but is useful for testing
+    outside of DESDM
+
+    TODO: 
+        - write psf map file
+        - write file config
+    """
+    def __init__(self, medsconf, tilename, band):
+        from .coaddinfo import Coadd
+        from .coaddsrc import CoaddSrc
+
+        conf=files.read_meds_config(medsconf)
+        self.update(conf)
+
+        self['tilename']=tilename
+        self['band']=band
+
+        csrc=CoaddSrc(campaign=self['campaign'])
+        self.coadd=Coadd(campaign=self['campaign'], sources=csrc)
+
+
+    def go(self):
+        """
+        download the data and make the null weight images
+        """
+        print("downloading all data")
+        info = self.coadd.download(self['tilename'], self['band'])
+
+        self._make_objmap(info)
+        self._copy_psfs(info)
+        self._make_nullwt(info)
+
+        fileconf=self._write_file_config(info)
+
+        self._write_nullwt_flist(info['src_info'], fileconf)
+        self._write_seg_flist(info['src_info'], fileconf)
+        self._write_bkg_flist(info['src_info'], fileconf)
+
+    def remove_nullwt(self):
+        """
+        remove all the generated nullwt files
+        """
+        info = self.coadd.get_info(self['tilename'], self['band'])
+        src_info = info['src_info']
+        self._add_nullwt_paths(src_info)
+
+        for sinfo in src_info:
+            npath = sinfo['nullwt_path']
+            if os.path.exists(npath):
+                print("removing:",npath)
+            files.try_remove(npath)
+
+
+    def _make_objmap(self, info):
+        fname=files.get_desdm_objmap(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+        if not os.path.exists(fname):
+            sources = self.coadd.get_sources()
+            objmap = sources.cache.get_objmap(info)
+            print(objmap)
+            print("writing objmap:",fname)
+            fitsio.write(fname, objmap, extname='OBJECTS',clobber=True)
+
+    def _write_nullwt_flist(self, src_info, fileconf):
+        fname=fileconf['nwgint_flist']
+        print("writing:",fname)
+        with open(fname, 'w') as fobj:
+            for sinfo in src_info:
+                fobj.write("%s %.16g\n" % (sinfo['nullwt_path'], sinfo['magzp'] ))
+
+    def _write_seg_flist(self, src_info, fileconf):
+        fname=fileconf['seg_flist']
+        print("writing:",fname)
+        with open(fname, 'w') as fobj:
+            for sinfo in src_info:
+                fobj.write("%s\n" % sinfo['seg_path'])
+
+    def _write_bkg_flist(self, src_info, fileconf):
+        fname=fileconf['bkg_flist']
+        print("writing:",fname)
+        with open(fname, 'w') as fobj:
+            for sinfo in src_info:
+                fobj.write("%s\n" % sinfo['bkg_path'])
+
+    def _write_file_config(self, info):
+        fname=files.get_desdm_file_config(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+
+        nullwt_flist=files.get_desdm_nullwt_flist(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+        seg_flist=files.get_desdm_seg_flist(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+        bkg_flist=files.get_desdm_bkg_flist(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+        objmap=files.get_desdm_objmap(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+
+
+        meds_file=files.get_meds_file(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+            ext='fits', # not yet fpacked
+        )
+        output={
+            'band':self['band'],
+            'coadd_image_url':info['image_path'],
+            'coadd_cat_url':info['cat_path'],
+            'coadd_seg_url':info['seg_path'],
+            'coadd_magzp':info['magzp'],
+            'coadd_object_map':objmap,
+
+            'nwgint_flist':nullwt_flist,
+            'seg_flist':seg_flist,
+            'bkg_flist':bkg_flist,
+
+            'meds_url':meds_file,
+        }
+
+        print("writing file config:",fname)
+        with open(fname,'w') as fobj:
+            for key,value in output.iteritems():
+                if key=="coadd_magzp":
+                    value = '%.16g' % value
+
+                fobj.write("%s: %s\n" % (key, value))
+
+        return output
+
+    def _make_nullwt(self, info):
+
+        src_info=info['src_info']
+        self._add_nullwt_paths(src_info)
+
+        dir=files.get_nullwt_dir(self['medsconf'], self['tilename'])
+        if not os.path.exists(dir):
+            print("making directory:",dir)
+            os.makedirs(dir)
+
+        print("making nullweight images")
+        for sinfo in src_info:
+            if os.path.exists(sinfo['nullwt_path']):
+                continue
+
+            cmd = _NULLWT_TEMPLATE % sinfo
+
+            subprocess.check_call(cmd,shell=True)
+
+
+    def _add_nullwt_paths(self, src_info):
+        for sinfo in src_info:
+
+            sinfo['nullwt_config'] = files.get_nwgint_config(self['campaign'])
+
+            sinfo['nullwt_path'] = files.get_nullwt_file(
+                self['medsconf'],
+                self['tilename'],
+                sinfo['image_path'],
+            )
+
+    def _copy_psfs(self, info):
+        psf_dir=files.get_psf_copy_dir(self['medsconf'], self['tilename'])
+        if not os.path.exists(psf_dir):
+            print("making directory:",psf_dir)
+            os.makedirs(psf_dir)
+
+        print("copying psf files")
+
+        psfs = self._get_psf_list(info)
+        for psf_file in psfs:
+            bname=os.path.basename(psf_file)
+            ofile = os.path.join(psf_dir, bname)
+
+            if os.path.exists(ofile):
+                continue
+
+            print("copying: %s -> %s" % (psf_file, ofile))
+            shutil.copy(psf_file, ofile)
+
+    def _get_psf_list(self, info):
+        psfs = []
+        psfs.append(info['psf_path'])
+
+        for sinfo in info['src_info']:
+            psfs.append(sinfo['psf_path'])
+
+        return psfs
+
+
+_NULLWT_TEMPLATE=r"""
+coadd_nwgint                  \
+   -i "%(image_path)s"        \
+   -o "%(nullwt_path)s"       \
+   --headfile "%(head_path)s" \
+   --max_cols 50              \
+   -v                         \
+   --interp_mask TRAIL,BPM    \
+   --invalid_mask EDGE        \
+   --null_mask BPM,BADAMP,EDGEBLEED,EDGE,CRAY,SSXTALK,STREAK,TRAIL \
+   --me_wgt_keepmask STAR     \
+   --block_size 5             \
+   --tilename %(tilename)s    \
+   --hdupcfg "%(nullwt_config)s"
+"""
+
 

@@ -40,9 +40,9 @@ class Coadd(object):
         download sources for a single tile and band
         """
 
-        info_list=self.get_info(tilename,band)
+        info=self.get_info(tilename,band)
 
-        flist_file=self._write_download_flist(info_list)
+        flist_file=self._write_download_flist(info)
 
         cmd=_DOWNLOAD_CMD % flist_file
 
@@ -51,6 +51,8 @@ class Coadd(object):
         finally:
             files.try_remove(flist_file)
 
+        return info
+        
     def remove(self, tilename, band):
         """
         remove downloaded files for the specified tile and band
@@ -297,9 +299,28 @@ class CoaddCache(object):
             'path':path,
             'band':band,
             'pfw_attempt_id':c['pfw_attempt_id'],
+
+            # need to add this to the cache?  should always
+            # be the same...
+            'magzp': 30.0,
         }
 
         return entry
+
+    def get_objmap(self, info):
+        """
+        get the mapping between OBJECT_NUMBER and ID
+        """
+        query=self._get_objmap_query(info)
+        print(query)
+
+        conn = self.get_conn()
+        curs = conn.cursor()
+        curs.execute(query)
+
+        dtype=self._get_objmap_dtype()
+        return numpy.fromiter(curs,dtype=dtype)
+
 
     def load_cache(self):
         """
@@ -321,7 +342,8 @@ class CoaddCache(object):
         fname=self.get_filename()
 
         print("writing to:",fname)
-        curs = self._doquery()
+        query = self._get_query()
+        curs = self._doquery(query)
 
         dt=self._get_dtype()
 
@@ -343,15 +365,21 @@ class CoaddCache(object):
 
         ]
 
+    def _get_objmap_dtype(self):
+        return [ 
+            ('object_number','i4'),
+            ('id','i8'),
+        ]
+
+
     def get_filename(self):
         """
         path to the cache
         """
         return files.get_coadd_cache_file(self.campaign)
 
-    def _doquery(self):
+    def _doquery(self, query):
 
-        query = self._get_query()
         print(query)
         conn=self.get_conn()
         curs = conn.cursor()
@@ -364,6 +392,13 @@ class CoaddCache(object):
             campaign=self.campaign,
         )
         return query
+
+    def _get_objmap_query(self, info):
+        #return _OBJECT_MAP_QUERY
+        filename=os.path.basename(info['cat_path'])
+        #filename=os.path.basename(info['filename'])
+        return _OBJECT_MAP_QUERY % filename
+
 
     def get_conn(self):
         if not hasattr(self, '_conn'):
@@ -417,6 +452,19 @@ _DOWNLOAD_AUX_CMD = r"""
         --files-from=%s \
         ${DESREMOTE_RSYNC}/ \
         ${DESDATA}/ 
+"""
+
+_OBJECT_MAP_QUERY = """
+select
+    object_number,
+    id
+from
+    -- coadd_object
+    prod.COADD_OBJECT_SAVE
+where
+    filename='%s'
+order by
+    object_number
 """
 
 #

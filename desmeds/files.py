@@ -15,10 +15,13 @@ def get_desdata():
     """
     return os.environ['DESDATA']
 
-def get_nwgint_config():
+def get_nwgint_config(campaign):
     """
     config used for making null weight images
     """
+
+    assert "y3a1" in campaign.lower()
+
     dir=get_desdata()
     path='OPS/config/multiepoch/Y3A1/v4/Y3A1_v4_coadd_nwgint.config'
     path=os.path.join(dir, path)
@@ -69,6 +72,22 @@ def get_coadd_src_cache_file(campaign):
     fname = os.path.join(dir, fname)
     return fname
 
+def get_zp_cache_file(campaign):
+    """
+    cache of coadd source information for the given campaign
+
+    parameters
+    ----------
+    campaign: string
+        e.g. 'Y3A1_COADD'
+    """
+    dir=get_list_dir()
+    fname='%s-zp-cache.fits' % campaign
+
+    fname = os.path.join(dir, fname)
+    return fname
+
+
 def get_meds_config_file(medsconf):
     """
     get the MEDS config file path
@@ -96,13 +115,23 @@ def read_meds_config(medsconf):
     medsconf: string
         Identifier for the meds config, e.g. "013"
     """
-    fname=get_meds_config_file(medsconf)
+
+    if '.yaml' in medsconf:
+        fname=medsconf
+        vers=os.path.basename(medsconf).replace('.yaml','').replace('meds-','')
+    else:
+        fname=get_meds_config_file(medsconf)
+        vers=medsconf
 
     print("reading:",fname)
     with open(fname) as fobj:
         data=yaml.load(fobj)
 
+    if data['medsconf'] != vers:
+        raise ValueError("version mismatch: found '%s' rather "
+                         "than '%s'" % (data['medsconf'], vers))
     return data
+
 
 def get_testbed_config_file(testbed):
     """
@@ -175,28 +204,59 @@ def get_meds_base():
     """
     return os.environ['MEDS_DIR']
 
-def get_meds_data_dir(meds_vers, tilename):
+def get_meds_data_dir(medsconf, tilename):
     """
     get the meds data directory for the input coadd run
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. 'y3a1-v02'
     tilename: string
         e.g. 'DES0417-5914'
     """
 
     bdir = get_meds_base()
-    return os.path.join(bdir, meds_vers, coadd_run)
+    return os.path.join(bdir, medsconf, tilename)
 
-def get_meds_script_dir(meds_vers):
+def get_nullwt_dir(medsconf, tilename):
+    """
+    get the directory for the null weight image
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    """
+
+    dir=get_meds_data_dir(medsconf, tilename)
+    return os.path.join(dir, 'nullwt')
+
+def get_psf_copy_dir(medsconf, tilename):
+    """
+    get the directory holding copies of the psf files
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    """
+
+    dir=get_meds_data_dir(medsconf, tilename)
+    return os.path.join(dir, 'psfs')
+
+
+def get_meds_script_dir(medsconf):
     """
     get the meds script directory
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. '013'
         or 'y1a1-v01'
     tilename: string
@@ -207,35 +267,35 @@ def get_meds_script_dir(meds_vers):
 
     ext='sh'
     type='make-meds'
-    return get_meds_script_file_generic(meds_vers, tilename, band, type, ext)
+    return get_meds_script_file_generic(medsconf, tilename, band, type, ext)
 
 
-def get_meds_script(meds_vers, tilename, band):
+def get_meds_script(medsconf, tilename, band):
     """
     get the meds script directory
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. '013'
         or 'y1a1-v01'
     """
 
     bdir = get_meds_base()
-    return os.path.join(bdir, meds_vers, 'scripts')
+    return os.path.join(bdir, medsconf, 'scripts')
 
 
 #
 # file paths
 #
 
-def get_meds_file(meds_vers, tilename, band, ext='fits.fz'):
+def get_meds_file(medsconf, tilename, band, ext='fits.fz'):
     """
     get the meds file for the input coadd run, band
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. '013'
         or 'y3a1-v01'
     tilename: string
@@ -245,19 +305,44 @@ def get_meds_file(meds_vers, tilename, band, ext='fits.fz'):
     """
 
     type='meds'
-    return get_meds_datafile_generic(meds_vers,
+    return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
                                      type,
                                      ext)
 
-def get_meds_stubby_file(meds_vers, tilename, band):
+def get_nullwt_file(medsconf, tilename, finalcut_file):
+    """
+    get the meds file for the input coadd run, band
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v01'
+    tilename: string
+        e.g. 'DES0417-5914'
+    filalcut_file: string
+        name of original finalcut file
+    """
+
+    dir=get_nullwt_dir(medsconf, tilename)
+
+    # original will be something like D00499389_r_c21_r2378p01_immasked.fits.fz
+    bname=os.path.basename(finalcut_file)
+    bname=bname.replace('.fits.fz','.fits')
+
+    fname=bname.replace('.fits','_nullwt.fits')
+
+    return os.path.join(dir, fname)
+
+def get_meds_stubby_file(medsconf, tilename, band):
     """
     get the stubby meds file, holding inputs for the MEDSMaker
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. '013'
         or 'y1a1-v01'
     tilename: string
@@ -268,19 +353,19 @@ def get_meds_stubby_file(meds_vers, tilename, band):
 
     type='meds-stubby'
     ext='fits'
-    return get_meds_datafile_generic(meds_vers,
+    return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
                                      type,
                                      ext)
 
-def get_meds_stats_file(meds_vers, tilename, band):
+def get_meds_stats_file(medsconf, tilename, band):
     """
     get the meds stats file for the input coadd run, band
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. '013'
         or 'y1a1-v01'
     tilename: string
@@ -291,19 +376,19 @@ def get_meds_stats_file(meds_vers, tilename, band):
 
     type='meds-stats'
     ext='yaml'
-    return get_meds_datafile_generic(meds_vers,
+    return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
                                      type,
                                      ext)
 
-def get_meds_status_file(meds_vers, tilename, band):
+def get_meds_status_file(medsconf, tilename, band):
     """
     get the meds status file for the input 
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. '013'
         or 'y1a1-v01'
     tilename: string
@@ -314,20 +399,20 @@ def get_meds_status_file(meds_vers, tilename, band):
 
     type='meds-status'
     ext='yaml'
-    return get_meds_datafile_generic(meds_vers,
+    return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
                                      type,
                                      ext)
 
 
-def get_meds_srclist_file(meds_vers, tilename, band):
+def get_meds_srclist_file(medsconf, tilename, band):
     """
     get the meds source list file
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. '013'
         or 'y1a1-v01'
     tilename: string
@@ -338,19 +423,19 @@ def get_meds_srclist_file(meds_vers, tilename, band):
 
     type='meds-srclist'
     ext='dat'
-    return get_meds_datafile_generic(meds_vers,
+    return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
                                      type,
                                      ext)
 
-def get_meds_input_file(meds_vers, tilename, band):
+def get_meds_input_file(medsconf, tilename, band):
     """
     get the meds input catalog file
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. '013'
         or 'y1a1-v01'
     tilename: string
@@ -361,19 +446,19 @@ def get_meds_input_file(meds_vers, tilename, band):
 
     type='meds-input'
     ext='dat'
-    return get_meds_datafile_generic(meds_vers,
+    return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
                                      type,
                                      ext)
 
-def get_meds_coadd_objects_id_file(meds_vers, coadd_run, band):
+def get_meds_coadd_objects_id_file(medsconf, coadd_run, band):
     """
     get the coadd objects id file for the input coadd run, band
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. '013'
         or 'y1a1-v01'
     coadd_run: string
@@ -385,7 +470,7 @@ def get_meds_coadd_objects_id_file(meds_vers, coadd_run, band):
     tilename=coadd_run_to_tilename(coadd_run)
     type='meds-coadd-objects-id'
     ext='dat'
-    return get_meds_datafile_generic(meds_vers,
+    return get_meds_datafile_generic(medsconf,
                                      coadd_run,
                                      tilename,
                                      band,
@@ -393,13 +478,13 @@ def get_meds_coadd_objects_id_file(meds_vers, coadd_run, band):
                                      ext)
 
 
-def get_meds_datafile_generic(meds_vers, tilename, band, type, ext):
+def get_meds_datafile_generic(medsconf, tilename, band, type, ext):
     """
     get the meds directory for the input tilename
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. '013'
         or 'y1a1-v01'
     tilename: string
@@ -412,13 +497,13 @@ def get_meds_datafile_generic(meds_vers, tilename, band, type, ext):
         extension, e.g. 'fits.fz' 'yaml' etc.
     """
 
-    dir = get_meds_data_dir(meds_vers, tilename)
+    dir = get_meds_data_dir(medsconf, tilename)
 
-    fname='%(tilename)s-%(band)s-%(type)s-%(meds_vers)s.%(ext)s'
+    fname='%(tilename)s-%(band)s-%(type)s-%(medsconf)s.%(ext)s'
     fname = fname % dict(tilename=tilename,
                          band=band,
                          type=type,
-                         meds_vers=meds_vers,
+                         medsconf=medsconf,
                          ext=ext)
     return os.path.join(dir, fname)
 
@@ -426,13 +511,13 @@ def get_meds_datafile_generic(meds_vers, tilename, band, type, ext):
 
 
 
-def get_meds_wq_file(meds_vers, tilename, band):
+def get_meds_wq_file(medsconf, tilename, band):
     """
     get the meds wq script file for the given tilename and band
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. '013'
         or 'y1a1-v01'
     tilename: string
@@ -443,15 +528,15 @@ def get_meds_wq_file(meds_vers, tilename, band):
 
     ext='yaml'
     type='make-meds'
-    return get_meds_script_file_generic(meds_vers, tilename, band, type, ext)
+    return get_meds_script_file_generic(medsconf, tilename, band, type, ext)
 
-def get_meds_stubby_wq_file(meds_vers, tilename, band):
+def get_meds_stubby_wq_file(medsconf, tilename, band):
     """
     get the stubby meds wq script file for the given tilename and band
 
     parameters
     ----------
-    meds_vers: string
+    medsconf: string
         A name for the meds version or config.  e.g. '013'
         or 'y1a1-v01'
     tilename: string
@@ -462,11 +547,11 @@ def get_meds_stubby_wq_file(meds_vers, tilename, band):
 
     ext='yaml'
     type='make-stubby'
-    return get_meds_script_file_generic(meds_vers, tilename, band, type, ext)
+    return get_meds_script_file_generic(medsconf, tilename, band, type, ext)
 
 
 
-def get_meds_script_file_generic(meds_vers, tilename, band, type, ext):
+def get_meds_script_file_generic(medsconf, tilename, band, type, ext):
     """
     get the meds script maker file for the given tilename and band
 
@@ -481,7 +566,7 @@ def get_meds_script_file_generic(meds_vers, tilename, band, type, ext):
     ext: string
         extension, e.g. 'sh' 'yaml'
     """
-    dir=get_meds_script_dir(meds_vers)
+    dir=get_meds_script_dir(medsconf)
 
     fname = '%(tilename)s-%(band)s-%(type)s.%(ext)s'
     fname = fname % dict(tilename=tilename,
@@ -778,3 +863,130 @@ def try_remove(fname, ntry=2, sleep_time=2):
                 print("could not remove '%s', trying again "
                       "in %f seconds" % (fname,sleep_time))
                 time.sleep(sleep_time)
+
+def read_yaml(fname):
+    with open(fname) as fobj:
+        data=yaml.load(fobj)
+
+    return data
+
+
+#
+# specific for the desdm version
+#
+
+def get_desdm_file_config(medsconf, tilename, band):
+    """
+    the desdm version needs a file config
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    type='fileconf'
+    ext='yaml'
+    return get_meds_datafile_generic(medsconf,
+                                     tilename,
+                                     band,
+                                     type,
+                                     ext)
+
+def get_desdm_nullwt_flist(medsconf, tilename, band):
+    """
+    the desdm version needs a list
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    type='nullwt-flist'
+    ext='dat'
+    return get_meds_datafile_generic(medsconf,
+                                     tilename,
+                                     band,
+                                     type,
+                                     ext)
+
+
+def get_desdm_seg_flist(medsconf, tilename, band):
+    """
+    the desdm version needs a list
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    type='seg-flist'
+    ext='dat'
+    return get_meds_datafile_generic(medsconf,
+                                     tilename,
+                                     band,
+                                     type,
+                                     ext)
+
+def get_desdm_bkg_flist(medsconf, tilename, band):
+    """
+    the desdm version needs a list
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    type='bkg-flist'
+    ext='dat'
+    return get_meds_datafile_generic(medsconf,
+                                     tilename,
+                                     band,
+                                     type,
+                                     ext)
+def get_desdm_objmap(medsconf, tilename, band):
+    """
+    the desdm version needs a map
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    type='objmap'
+    ext='fits'
+    return get_meds_datafile_generic(medsconf,
+                                     tilename,
+                                     band,
+                                     type,
+                                     ext)
+

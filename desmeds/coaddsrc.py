@@ -110,6 +110,42 @@ class CoaddSrcCache(CoaddCache):
         """
         get info for the specified tilename and band
         """
+
+        query = _QUERY_COADD_SRC_BYTILE.format(
+            campaign=self.campaign,
+            finalcut_campaign=self.finalcut_campaign,
+            tilename=tilename,
+            band=band,
+        )
+
+        print(query)
+        conn=self.get_conn()
+        curs = conn.cursor()
+        curs.execute(query)
+
+        info_list=[]
+
+        for row in curs:
+            tile,path,fname,comp,band,pai,magzp = row
+            info = {
+                'tilename':tile,
+                'filename':fname,
+                'compression':comp,
+                'path':path,
+                'band':band,
+                'pfw_attempt_id':pai,
+                'magzp': magzp,
+            }
+
+            info_list.append(info)
+
+        return info_list
+
+
+    def get_info_old(self, tilename, band):
+        """
+        get info for the specified tilename and band
+        """
         cache=self.get_data()
 
         key = make_cache_key(tilename, band)
@@ -137,6 +173,9 @@ class CoaddSrcCache(CoaddCache):
                 'path':path,
                 'band':band,
                 'pfw_attempt_id':c['pfw_attempt_id'],
+
+                # need to add this to the cache
+                'magzp': 30.0,
             }
 
             entries.append(entry)
@@ -158,17 +197,31 @@ class CoaddSrcCache(CoaddCache):
         """
 
         fname=self.get_filename()
+        zp_fname=self.get_zp_filename()
         if not os.path.join(fname):
             self.make_cache()
 
         print("loading cache:",fname)
         self._cache=fitsio.read(fname)
+        self._cache['filename'] = \
+                numpy.char.rstrip(self._cache['filename'])
+        print("loading zp cache:",fname)
+        self._zp_cache = fitsio.read(zp_filename)
+        self._zp_cache['imagename'] = \
+                numpy.char.rstrip(self._zp_cache['imagename'])
 
     def get_filename(self):
         """
         path to the cache
         """
         return files.get_coadd_src_cache_file(self.campaign)
+
+    def get_zp_filename(self):
+        """
+        path to the cache
+        """
+        return files.get_zp_cache_file(self.campaign)
+
 
     '''
     def _get_dtype(self):
@@ -190,6 +243,36 @@ class CoaddSrcCache(CoaddCache):
         )
         return query
 
+    def make_zp_cache(self):
+        """
+        cache all the relevant information for this campaign
+        """
+
+        fname=self.get_zp_filename()
+
+        print("writing to:",fname)
+        query = _ZP_QUERY
+        curs = self._doquery(query)
+
+        dt=self._get_zp_dtype()
+
+        info=numpy.fromiter(curs, dtype=dt)
+
+        print("writing to:",fname)
+        fitsio.write(fname, info, clobber=True)
+
+
+    def _get_dtype(self):
+        dt = super(CoaddSrcCache,self)._get_dtype()
+        dt += [('magzp','f8')]
+        return dt
+
+    def _get_zp_dtype(self):
+        return [
+            ('imagename','S40'),
+            ('magzp','f8'),
+        ]
+
     def _set_finalcut_campaign(self):
         if self.campaign=='Y3A1_COADD':
             self.finalcut_campaign='Y3A1_FINALCUT'
@@ -197,9 +280,88 @@ class CoaddSrcCache(CoaddCache):
             raise ValueError("determine finalcut campaign "
                              "for '%s'" % self.campaig)
 
-
+#select imagename, mag_zero from ZEROPOINT where IMAGENAME='D00504555_z_c41_r2378p01_immasked.fits' and source='FGCM' and version='v2.0';
 
 _QUERY_COADD_SRC="""
+select
+    i.tilename || '-' || j.band as key,
+    i.tilename,
+    fai.path,
+    j.filename as filename,
+    fai.compression,
+    j.band as band,
+    i.pfw_attempt_id,
+    z.mag_zero as magzp
+from
+    image i,
+    image j,
+    proctag tme,
+    proctag tse,
+    file_archive_info fai,
+    zeropoint z
+where
+    tme.tag='{campaign}'
+    and tme.pfw_attempt_id=i.pfw_attempt_id
+    and i.filetype='coadd_nwgint'
+    -- and i.tilename='DES0215-0458'
+    and i.expnum=j.expnum
+    and i.ccdnum=j.ccdnum
+    and j.filetype='red_immask'
+    and j.pfw_attempt_id=tse.pfw_attempt_id
+    and tse.tag='{finalcut_campaign}'
+    and fai.filename=j.filename
+    -- and z.imagename = j.filename
+    -- and z.source='FGCM'
+    -- and z.version='v2.0'
+    -- and rownum < 1000
+"""
+
+_QUERY_COADD_SRC_BYTILE="""
+select
+    i.tilename,
+    fai.path,
+    j.filename as filename,
+    fai.compression,
+    j.band as band,
+    i.pfw_attempt_id,
+    z.mag_zero as magzp
+from
+    image i,
+    image j,
+    proctag tme,
+    proctag tse,
+    file_archive_info fai,
+    zeropoint z
+where
+    tme.tag='{campaign}'
+    and tme.pfw_attempt_id=i.pfw_attempt_id
+    and i.filetype='coadd_nwgint'
+    and i.tilename='{tilename}'
+    and i.expnum=j.expnum
+    and i.ccdnum=j.ccdnum
+    and j.filetype='red_immask'
+    and j.pfw_attempt_id=tse.pfw_attempt_id
+    and j.band='{band}'
+    and tse.tag='{finalcut_campaign}'
+    and fai.filename=j.filename
+    and z.imagename = j.filename
+    and z.source='FGCM'
+    and z.version='v2.0'
+"""
+
+
+_ZP_QUERY="""
+select
+    imagename,
+    mag_zero as magzp
+from
+    zeropoint
+where
+    source='FGCM'
+    and version='v2.0'
+"""
+
+_QUERY_COADD_SRC_old2="""
 select
     i.tilename || '-' || j.band as key,
     i.tilename,
@@ -228,41 +390,5 @@ where
     --and rownum < 1000
 """
 
-_QUERY_COADD_SRC_OLD="""
-SELECT
-    hdr.tilename || '-' || msk.band as key,
-    hdr.tilename,
-    msk.band         as band,
-    fhdr.path        as head_path,
-    hdr.filename     as head_filename,
-    fmsk.path        as immask_path,
-    fmsk.filename    as immask_filename,
-    fmsk.compression as immask_compression,
-    msk.pfw_attempt_id
-FROM
-    proctag tc,
-    proctag ts,
-    image msk,
-    image nwg,
-    miscfile hdr,
-    file_archive_info fhdr,
-    file_archive_info fmsk
-WHERE
-    tc.tag='{campaign}'
-    and ts.tag='{finalcut_campaign}'
-    and ts.pfw_attempt_id=msk.pfw_attempt_id
-    and tc.pfw_attempt_id=hdr.pfw_attempt_id
-    -- and hdr.tilename='DES0158-3957'
-    and nwg.tilename=hdr.tilename
-    and msk.ccdnum=hdr.ccdnum
-    and nwg.ccdnum=hdr.ccdnum
-    and msk.expnum=hdr.expnum
-    and nwg.expnum=hdr.expnum
-    and hdr.filename=fhdr.filename
-    and msk.filename=fmsk.filename
-    and hdr.filetype='coadd_head_scamp'
-    and msk.filetype='red_immask'
-    and nwg.filetype='coadd_nwgint'
-    and fhdr.archive_name='desar2home'
-    --and rownum < 1000
-"""
+
+
