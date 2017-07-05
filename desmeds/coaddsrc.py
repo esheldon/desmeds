@@ -1,10 +1,9 @@
 from __future__ import print_function
 import os
 import shutil
+import tempfile
 import numpy
 import fitsio
-import tempfile
-import subprocess
 
 from . import files
 from .coaddinfo import CoaddCache, Coadd, make_cache_key
@@ -20,42 +19,6 @@ class CoaddSrc(Coadd):
         self._add_full_paths(info_list)
 
         return info_list
-
-    def download(self, tilename, band):
-        """
-        download sources for a single tile and band
-        """
-
-        info_list=self.get_info(tilename,band)
-
-        flist_file=self._write_download_flist(info_list)
-
-        cmd=_DOWNLOAD_CMD % flist_file
-
-        try:
-            subprocess.check_call(cmd,shell=True)
-        finally:
-            try:
-                os.remove(flist_file)
-            except:
-                pass
-
-    def remove(self, tilename, band):
-        """
-        remove downloaded files for the specified tile and band
-        """
-
-        info_list=self.get_info(tilename,band)
-
-        for info in info_list:
-            for type in ['image','bkg','seg','psf']:
-                tname='%s_path' % type
-
-                fname = info[tname]
-
-                if os.path.exists(fname):
-                    print("removing:",fname)
-                    files.try_remove(fname)
 
     def _add_full_paths(self, info_list):
         """
@@ -86,28 +49,6 @@ class CoaddSrc(Coadd):
                 dirdict['psf']['local_dir'],
                 info['filename'].replace('immasked.fits','psfexcat.psf')
             )
-
-    def _write_download_flist(self, info_list):
-        desdata=files.get_desdata()
-
-        if desdata[-1] != '/':
-            desdata += '/'
-
-        flist_file=tempfile.mktemp()
-        print("writing file list to:",flist_file)
-        with open(flist_file,'w') as fobj:
-            for info in info_list:
-                for type in ['image','bkg','seg','psf']:
-                    tname='%s_path' % type
-
-                    fname = info[tname]
-
-                    fname = fname.replace(desdata, '')
-
-                    fobj.write(fname)
-                    fobj.write('\n')
-
-        return flist_file
 
 
     def _set_cache(self):
@@ -148,6 +89,11 @@ class CoaddSrc(Coadd):
             ps[-1] = type
 
         return '/'.join(ps)
+
+    def download(self, *args):
+        raise NotImplementedError("use Coadd to download")
+    def remove(self, *args):
+        raise NotImplementedError("use Coadd to remove")
 
 
 
@@ -319,14 +265,4 @@ WHERE
     and nwg.filetype='coadd_nwgint'
     and fhdr.archive_name='desar2home'
     --and rownum < 1000
-"""
-
-
-_DOWNLOAD_CMD = r"""
-    rsync \
-        -av \
-        --password-file $DES_RSYNC_PASSFILE \
-        --files-from=%s \
-        ${DESREMOTE_RSYNC}/ \
-        ${DESDATA}/ 
 """

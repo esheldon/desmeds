@@ -3,6 +3,9 @@ import os
 import shutil
 import numpy
 import fitsio
+import tempfile
+import subprocess
+
 from . import files
 
 class Coadd(object):
@@ -32,52 +35,41 @@ class Coadd(object):
 
         return info
 
-
-    def remove(self, tilename):
+    def download(self, tilename, band):
         """
-        remove downloaded files for the specified tile
-        """
-        info=self.get_info(tilename)
-
-        dirdict=self._get_all_dirs(info)
-        dirs=dirdict['image']
-
-        if os.path.exists(dirs['local_dir']):
-            # we actually want go down the tree a bit
-
-            base_dir=os.path.dirname(dirs['local_dir'])
-            print("removing directory:",base_dir)
-            shutil.rmtree(base_dir)
-            #print("not actually removing")
-
-    def download(self, tilename):
-        """
-        download a single tile, all bands
+        download sources for a single tile and band
         """
 
-        info=self.cache.get_info(tilename)
-        dirdict=self._get_all_dirs(info)
+        info_list=self.get_info(tilename,band)
 
-        for type,dirs in dirdict.iteritems():
+        flist_file=self._write_download_flist(info_list)
 
-            if not os.path.exists(dirs['local_dir']):
-                print("making local directory:",dirs['local_dir'])
-                os.makedirs(dirs['local_dir'])
+        cmd=_DOWNLOAD_CMD % flist_file
 
-            cmd = r"""
-    rsync \
-        -avP \
-        --password-file $DES_RSYNC_PASSFILE \
-        %(remote_dir)s/ \
-        %(local_dir)s/  """ % dirs
+        try:
+            subprocess.check_call(cmd,shell=True)
+        finally:
+            files.try_remove(flist_file)
 
-            cmd = os.path.expandvars(cmd)
+    def remove(self, tilename, band):
+        """
+        remove downloaded files for the specified tile and band
+        """
 
-            print(cmd)
-            ret=os.system(cmd)
+        info=self.get_info(tilename,band)
+        flist=self._get_download_flist(info)
 
-            if ret != 0:
-                raise RuntimeError("rsync failed")
+        for fname in flist:
+            if os.path.exists(fname):
+                print("removing:",fname)
+                files.try_remove(fname)
+
+    def get_sources(self):
+        """
+        get the source list
+        """
+        return self.sources
+
 
     def _add_full_paths(self, info):
         """
@@ -96,13 +88,86 @@ class Coadd(object):
             dirdict['seg']['local_dir'],
             info['filename'].replace('.fits','_segmap.fits'),
         )
+        info['psf_path'] = os.path.join(
+            dirdict['psf']['local_dir'],
+            info['filename'].replace('.fits','_psfcat.psf'),
+        )
 
 
-    def get_sources(self):
+    def _get_download_flist(self, info, no_prefix=False):
         """
-        get the source list
+        get list of files for this tile
+
+        parameters
+        ----------
+        info: dict
+            The info dict for this tile/band, possibly including
+            the src_info
+
+        no_prefix: bool 
+            If True, the $DESDATA/ is removed from the front
         """
-        return self.sources
+        desdata=files.get_desdata()
+
+        if desdata[-1] != '/':
+            desdata += '/'
+
+        types=self._get_download_types()
+        stypes=self._get_source_download_types()
+
+        flist=[]
+        for type in types:
+            tname='%s_path' % type
+
+            fname = info[tname]
+
+            if no_prefix:
+                fname = fname.replace(desdata, '')
+
+            flist.append(fname)
+
+        if 'src_info' in info:
+            for sinfo in info['src_info']:
+                for type in stypes:
+                    tname='%s_path' % type
+
+                    fname = sinfo[tname]
+
+                    if no_prefix:
+                        fname = fname.replace(desdata, '')
+
+                    flist.append(fname)
+
+
+        return flist
+
+
+    def _write_download_flist(self, info):
+
+        flist_file=self._get_tempfile()
+        flist=self._get_download_flist(info, no_prefix=True)
+
+        print("writing file list to:",flist_file)
+        with open(flist_file,'w') as fobj:
+            for fname in flist:
+                fobj.write(fname)
+                fobj.write('\n')
+
+        return flist_file
+
+    def _get_tempfile(self):
+        return tempfile.mktemp(
+            prefix='coadd-flist-',
+            suffix='.dat',
+        )
+
+
+    def _get_download_types(self):
+        return ['image','cat','seg','psf']
+
+    def _get_source_download_types(self):
+        return ['image','bkg','seg','psf','head']
+
 
     def _add_src_info(self, info, tilename, band):
         """
@@ -129,7 +194,7 @@ class Coadd(object):
 
             fid = fname[0:15]
 
-            head_fname = '%s_%s_scamp.head' % (head_front, fid)
+            head_fname = '%s_%s_scamp.ohead' % (head_front, fid)
 
             src['head_path'] = os.path.join(
                 auxdir,
@@ -150,6 +215,7 @@ class Coadd(object):
         dirs['cat'] = self._get_dirs(path, type='cat')
         dirs['aux'] = self._get_dirs(path, type='aux')
         dirs['seg'] = self._get_dirs(path, type='seg')
+        dirs['psf'] = self._get_dirs(path, type='psf')
         return dirs
 
     def _get_dirs(self, path, type=None):
@@ -335,6 +401,23 @@ where
     and m.filetype='coadd'
     and fai.filename=m.filename
     and fai.archive_name='desar2home'\n"""
+
+_DOWNLOAD_CMD = r"""
+    rsync \
+        -av \
+        --password-file $DES_RSYNC_PASSFILE \
+        --files-from=%s \
+        ${DESREMOTE_RSYNC}/ \
+        ${DESDATA}/ 
+"""
+_DOWNLOAD_AUX_CMD = r"""
+    rsync \
+        -av \
+        --password-file $DES_RSYNC_PASSFILE \
+        --files-from=%s \
+        ${DESREMOTE_RSYNC}/ \
+        ${DESDATA}/ 
+"""
 
 #
 # not used

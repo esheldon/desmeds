@@ -38,6 +38,38 @@ fwhm_fac = 2*sqrt(2*log(2))
 
 from .maker import DESMEDSMaker
 
+class Preparator(dict):
+    """
+    class to prepare inputs for the DESDM version
+    of the MEDS maker
+
+    This is not used by DESDM, but is useful for testing
+    outside of DESDM
+    """
+    def __init__(self, medsconf, tilename, band):
+        self._load_medsconf(medsconf)
+        self['tilename']=tilename
+        self['band']=band
+
+    def go(self):
+        self.download()
+
+    def download(self):
+        from .coaddinfo import Coadd
+        from .coaddsrc import CoaddSrc
+
+        c=Coadd(campaign=self['campaign'])
+        csrc=CoaddSrc(campaign=self['campaign'])
+
+        c.download(self['tilename'])
+        csrc.download(self['tilename'], self['band'])
+
+    def _load_medsconf(self, medsconf):
+        with open(medsconf) as fobj:
+            conf=yaml.load( fobj )
+
+        self.update(conf)
+
 class DESMEDSMakerDESDM(DESMEDSMaker):
     """
     This is the class for use by DESDM.  For this version,
@@ -322,3 +354,4 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         fname=self.file_dict['meds_url']
         print("writing MEDS file:",fname)
         maker.write(fname)
+
