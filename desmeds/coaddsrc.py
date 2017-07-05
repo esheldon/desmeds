@@ -3,6 +3,8 @@ import os
 import shutil
 import numpy
 import fitsio
+import tempfile
+import subprocess
 
 from . import files
 from .coaddinfo import CoaddCache, Coadd, make_cache_key
@@ -19,69 +21,41 @@ class CoaddSrc(Coadd):
 
         return info_list
 
-
     def download(self, tilename, band):
         """
         download sources for a single tile and band
         """
 
-        info_list=self.cache.get_info(tilename,band)
+        info_list=self.get_info(tilename,band)
 
-        done_dirs={}
+        flist_file=self._write_download_flist(info_list)
 
-        for info in info_list:
+        cmd=_DOWNLOAD_CMD % flist_file
 
-            dirdict=self._get_all_dirs(info)
-            for type,dirs in dirdict.iteritems():
-
-                if dirs['local_dir'] in done_dirs:
-                    continue
-
-                if not os.path.exists(dirs['local_dir']):
-                    print("making local directory:",dirs['local_dir'])
-                    os.makedirs(dirs['local_dir'])
-
-                cmd = r"""
-    rsync \
-        -av \
-        --password-file $DES_RSYNC_PASSFILE \
-        %(remote_dir)s/ \
-        %(local_dir)s/  """ % dirs
-
-                cmd = os.path.expandvars(cmd)
-
-                print(cmd)
-                ret=os.system(cmd)
-
-                if ret != 0:
-                    raise RuntimeError("rsync failed")
-                
-                done_dirs[dirs['local_dir']] = 'yes'
+        try:
+            subprocess.check_call(cmd,shell=True)
+        finally:
+            try:
+                os.remove(flist_file)
+            except:
+                pass
 
     def remove(self, tilename, band):
         """
         remove downloaded files for the specified tile and band
         """
 
-        info_list=self.cache.get_info(tilename,band)
+        info_list=self.get_info(tilename,band)
 
-        done_dirs={}
         for info in info_list:
-            dirdict=self._get_all_dirs(info)
-            dirs=dirdict['seg']
+            for type in ['image','bkg','seg','psf']:
+                tname='%s_path' % type
 
-            if dirs['local_dir'] in done_dirs:
-                continue
+                fname = info[tname]
 
-            if os.path.exists(dirs['local_dir']):
-                # we actually want go down the tree a bit
-
-                base_dir=os.path.dirname(dirs['local_dir'])
-                print("removing directory:",base_dir)
-                shutil.rmtree(base_dir)
-                #print("not actually removing")
-
-            done_dirs[dirs['local_dir']] = 'yes'
+                if os.path.exists(fname):
+                    print("removing:",fname)
+                    files.try_remove(fname)
 
     def _add_full_paths(self, info_list):
         """
@@ -113,6 +87,27 @@ class CoaddSrc(Coadd):
                 info['filename'].replace('immasked.fits','psfexcat.psf')
             )
 
+    def _write_download_flist(self, info_list):
+        desdata=files.get_desdata()
+
+        if desdata[-1] != '/':
+            desdata += '/'
+
+        flist_file=tempfile.mktemp()
+        print("writing file list to:",flist_file)
+        with open(flist_file,'w') as fobj:
+            for info in info_list:
+                for type in ['image','bkg','seg','psf']:
+                    tname='%s_path' % type
+
+                    fname = info[tname]
+
+                    fname = fname.replace(desdata, '')
+
+                    fobj.write(fname)
+                    fobj.write('\n')
+
+        return flist_file
 
 
     def _set_cache(self):
@@ -324,4 +319,14 @@ WHERE
     and nwg.filetype='coadd_nwgint'
     and fhdr.archive_name='desar2home'
     --and rownum < 1000
+"""
+
+
+_DOWNLOAD_CMD = r"""
+    rsync \
+        -av \
+        --password-file $DES_RSYNC_PASSFILE \
+        --files-from=%s \
+        ${DESREMOTE_RSYNC}/ \
+        ${DESDATA}/ 
 """
