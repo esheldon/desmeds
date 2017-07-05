@@ -65,12 +65,6 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                 path to the seg file list
             bkg_flist: string
                 path to the bkg file list
-
-    do_inputs: bool, optional
-        If True, write the stubby meds file holding the inputs for
-        the MEDSMaker. Default True.
-    do_meds: bool, optional
-        If True, write the MEDS file.  Default True
     """
     def __init__(self,
                  medsconf,
