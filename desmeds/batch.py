@@ -1,163 +1,97 @@
 from __future__ import print_function
 import sys
 import os
-import numpy
-import fitsio
 
 from . import files
 
-# desdb is not needed in all scenarios
-try:
-    import desdb
-except ImportError:
-    pass
+class Generator(dict):
+    def __init__(self, medsconf, tilename, band, extra=None, system='lsf'):
 
+        self['medsconf']=medsconf
+        self['tilename']=tilename
+        self['band']=band
+        
+        if extra is None:
+            extra=''
 
-_wq_make_stubby_template="""
-command: |
-    %(extra)s
-    medsconf="%(medsconf)s"
-    coadd_run="%(coadd_run)s"
-    band="%(band)s"
-    desmeds-make-stubby-meds $medsconf $coadd_run $band
+        self['extra']=extra
+        self.system=system
 
-job_name: %(job_name)s
-"""
+        self['script_file']=files.get_meds_script(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
 
-_wq_make_meds_template="""
-command: |
-    %(extra)s
-    medsconf="%(medsconf)s"
-    coadd_run="%(coadd_run)s"
-    band="%(band)s"
-    desmeds-make-meds --from-stubby $medsconf $coadd_run $band
+        self['log_file'] = files.get_meds_log_file(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
 
-job_name: %(job_name)s
-N: 2
-"""
-#mode: bynode
-
-def release_is_sva1(release):
-    if isinstance(release,basestring):
-        return 'sva1' in release.lower()
-    else:
-        for r in release:
-            if 'sva1' in r.lower():
-                return True
-
-    return False
-
-class Generator(object):
-    def __init__(self, medsconf, check=False, extra=None):
-
-        self.medsconf=medsconf
-        self.extra=extra
-        self.check=check
-
-        self.conf=files.read_meds_config(medsconf)
-        self.conn=desdb.Connection()
-
-
-        self.df=desdb.files.DESFiles()
-
-    def load_coadd(self, coadd_run, band):
+    def write(self):
         """
-        load all the relevant info for the specified coadd and band
+        write the script and batch submission file
         """
-        self.coadd_run=coadd_run
-        self.band=band
 
-        print("loading coadd info and srclist")
-        self.cf=desdb.files.Coadd(coadd_run=coadd_run,
-                                  band=band,
-                                  conn=self.conn)
+        self._write_script()
 
-        if self.check:
-            do_srclist=True
+        if self.system=="lsf":
+            self._write_lsf()
+        elif self.system=="wq":
+            self._write_wq()
         else:
-            do_srclist=False
+            raise ValueError("bad system '%s'" % self.system)
 
-        self.cf.load(srclist=do_srclist)
+    def _write_script(self):
+        """
+        write the shell script
+        """
 
-        nmissing=0
-        if self.check:
-            nmissing += self._check_all()
+        make_dirs(self['script_file'])
 
-        return nmissing
+        print("writing script:",self['script_file'])
+        with open(self['script_file'],'w') as fobj:
+            text=_script_template % self
+            fobj.write(text)
 
-    def write_all(self):
-        """
-        write all part
-        """
-        self.write_make_stubby_wq()
-        self.write_make_meds_wq()
 
-    def write_make_meds_wq(self):
+    def _write_lsf(self):
         """
-        write the wq script
+        write the lsf file for making the MEDS file
         """
-        self._write_wq('meds')
 
-    def write_make_stubby_wq(self):
-        """
-        write the wq script
-        """
-        self._write_wq('stubby')
+        lsf_file = files.get_meds_lsf_file(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+
+        self['file_front']=os.path.basename(lsf_file.replace(".lsf",''))
+
+        make_dirs(lsf_file)
+
+        print("writing lsf script:",lsf_file)
+        with open(lsf_file,'w') as fobj:
+            text=_lsf_template % self
+            fobj.write(text)
 
     def _write_wq(self, type):
         """
         write the wq script
         """
-
-        job_name='%s-%s' % (self.cf['tilename'],self.band)
-        d={'medsconf':self.medsconf,
-           'job_name':job_name,
-           'coadd_run':self.cf['coadd_run'],
-           'band':self.cf['band']}
-
-        if self.extra is not None:
-            d['extra']=self.extra
-        else:
-            d['extra']='# no extra commands'
-
-        if type=='stubby':
-            wq_file = files.get_meds_stubby_wq_file(self.medsconf,
-                                                    self.cf['tilename'],
-                                                    self.band)
-
-            template=_wq_make_stubby_template
-        else:
-            wq_file = files.get_meds_wq_file(self.medsconf,
-                                             self.cf['tilename'],
-                                             self.band)
-
-            template=_wq_make_meds_template
-
-        text=template % d
+        wq_file = files.get_meds_wq_file(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
 
         make_dirs(wq_file)
         print('writing wq script:',wq_file)
 
         with open(wq_file,'w') as fobj:
+            text=_wq_make_meds_template % self
             fobj.write(text)
-
-    def _check_all(self):
-        nmissing = 0
-        for r in self.cf.srclist:
-            nmissing += self.do_check_inputs(r)
-        print('nmissing: ',nmissing)
-
-        return nmissing
-
-
-    def do_check_inputs(self, r):
-        nmissing=0
-        for ftype in ['red_image','red_bkg','red_seg']:
-            if not os.path.exists(r[ftype]):
-                print("missing %s %s %s: %s" % (r['run'],r['expname'],ftype,r[ftype]))
-                nmissing+=1
-
-        return nmissing
 
 
 def make_dirs(*args):
@@ -170,4 +104,59 @@ def make_dirs(*args):
                 os.makedirs(d)
             except:
                 pass
+
+_lsf_template=r"""#!/bin/bash
+#BSUB -J "meds-%(tilename)s-%(band)s"
+#BSUB -oo ./%(file_front)s.oe
+#BSUB -R "linux64 && rhel60 && scratch > 20"
+#BSUB -n 1
+#BSUB -W 12:00
+
+export TMPDIR=/scratch/$USER/$LSB_JOBID-$LSB_JOBINDEX
+
+mkdir -pv $TMPDIR
+
+log_file=%(log_file)s
+tmp_log=$(basename $log_file)
+tmp_log="$TMPDIR/$tmp_log"
+
+bash %(script_file)s &> ${tmp_log}
+
+mv -fv "${tmp_log}" "${log_file}" 1>&2
+
+rm -rv $TMPDIR
+"""
+
+
+_wq_make_meds_template=r"""
+command: |
+    %(extra)s
+
+    tmpdir=$TMPDIR/meds-%(tilename)s-%(band)s
+    export TMPDIR=$tmpdir
+
+    mkdir -pv $TMPDIR
+
+    log_file=%(log_file)s
+    tmp_log=$(basename $log_file)
+    tmp_log="$TMPDIR/$tmp_log"
+
+    bash %(script_file)s &> ${tmp_log}
+
+    mv -fv "${tmp_log}" "${log_file}" 1>&2
+
+    rm -rv $tmpdir
+
+job_name: "meds-%(tilename)s-%(band)s"
+"""
+
+_script_template=r"""#!/bin/bash
+
+mkdir -p $TMPDIR
+
+desmeds-make-meds \
+    --tmpdir=$TMPDIR \
+    %(medsconf)s %(tilename)s %(band)s
+"""
+
 

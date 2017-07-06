@@ -15,7 +15,6 @@ class Coadd(object):
     """
     def __init__(self, campaign='Y3A1_COADD', src=None, sources=None):
         self.campaign=campaign.upper()
-        self._set_cache()
         self.sources=sources
 
     def get_info(self, tilename, band):
@@ -24,7 +23,7 @@ class Coadd(object):
 
         if sources were sent to the constructor, add source info as well
         """
-        info = self.cache.get_info(tilename, band)
+        info = self._do_query(tilename, band)
 
         # add full path info
         self._add_full_paths(info)
@@ -66,11 +65,74 @@ class Coadd(object):
                 print("removing:",fname)
                 files.try_remove(fname)
 
+    def get_objmap(self, info):
+        """
+        get the mapping between OBJECT_NUMBER and ID
+        """
+        query=self._get_objmap_query(info)
+        print(query)
+
+        conn = self.get_conn()
+        curs = conn.cursor()
+        curs.execute(query)
+
+        dtype=self._get_objmap_dtype()
+        return numpy.fromiter(curs,dtype=dtype)
+
+    def _get_objmap_query(self, info):
+        #return _OBJECT_MAP_QUERY
+        filename=os.path.basename(info['cat_path'])
+        #filename=os.path.basename(info['filename'])
+        return _OBJECT_MAP_QUERY % filename
+
+    def _get_objmap_dtype(self):
+        return [ 
+            ('object_number','i4'),
+            ('id','i8'),
+        ]
+
+
     def get_sources(self):
         """
         get the source list
         """
         return self.sources
+
+    def _do_query(self, tilename, band):
+        """
+        get info for the specified tilename and band
+        """
+        
+        query = _QUERY_COADD_TEMPLATE_BYTILE.format(
+            campaign=self.campaign,
+            tilename=tilename,
+            band=band,
+        )
+
+        print(query)
+        conn=self.get_conn()
+        curs = conn.cursor()
+        curs.execute(query)
+
+        c=curs.fetchall()
+
+        tile,path,fname,comp,band,pai = c[0]
+
+        entry = {
+            'tilename':tile,
+            'filename':fname,
+            'compression':comp,
+            'path':path,
+            'band':band,
+            'pfw_attempt_id':pai,
+
+            # need to add this to the cache?  should always
+            # be the same...
+            'magzp': 30.0,
+        }
+
+        return entry
+
 
 
     def _add_full_paths(self, info):
@@ -203,11 +265,22 @@ class Coadd(object):
                 head_fname,
             )
 
+    def get_conn(self):
+        if not hasattr(self, '_conn'):
+            self._make_conn()
 
+        return self._conn
 
+    def _make_conn(self):
+        sources = self.get_sources()
+        if sources is not None:
+            # share connection with the sources
+            conn=sources.get_conn()
+        else:
+            import easyaccess as ea
+            conn=ea.connect(section='desoper')
 
-    def _set_cache(self):
-        self.cache = CoaddCache(self.campaign)
+        self._conn=conn
 
     def _get_all_dirs(self, info):
         dirs={}
@@ -255,6 +328,7 @@ class Coadd(object):
         return '/'.join(ps)
 
 
+'''
 class CoaddCache(object):
     """
     cache to hold path info for the coadds
@@ -271,11 +345,45 @@ class CoaddCache(object):
 
         return self._cache
 
-    def get_info(self, tilename, band='i'):
+    def get_info(self, tilename, band):
         """
         get info for the specified tilename and band
         """
+        
+        query = _QUERY_COADD_TEMPLATE_BYTILE.format(
+            campaign=self.campaign,
+            tilename=tilename,
+            band=band,
+        )
 
+        print(query)
+        conn=self.get_conn()
+        curs = conn.cursor()
+        curs.execute(query)
+
+        c=curs.fetchall()
+
+        tile,path,fname,comp,band,pai = c[0]
+
+        entry = {
+            'tilename':tile,
+            'filename':fname,
+            'compression':comp,
+            'path':path,
+            'band':band,
+            'pfw_attempt_id':pai,
+
+            # need to add this to the cache?  should always
+            # be the same...
+            'magzp': 30.0,
+        }
+
+        return entry
+
+    def get_info_old(self, tilename, band='i'):
+        """
+        get info for the specified tilename and band
+        """
 
         cache = self.get_data()
 
@@ -307,6 +415,7 @@ class CoaddCache(object):
 
         return entry
 
+
     def get_objmap(self, info):
         """
         get the mapping between OBJECT_NUMBER and ID
@@ -321,6 +430,11 @@ class CoaddCache(object):
         dtype=self._get_objmap_dtype()
         return numpy.fromiter(curs,dtype=dtype)
 
+    def _get_objmap_query(self, info):
+        #return _OBJECT_MAP_QUERY
+        filename=os.path.basename(info['cat_path'])
+        #filename=os.path.basename(info['filename'])
+        return _OBJECT_MAP_QUERY % filename
 
     def load_cache(self):
         """
@@ -393,13 +507,6 @@ class CoaddCache(object):
         )
         return query
 
-    def _get_objmap_query(self, info):
-        #return _OBJECT_MAP_QUERY
-        filename=os.path.basename(info['cat_path'])
-        #filename=os.path.basename(info['filename'])
-        return _OBJECT_MAP_QUERY % filename
-
-
     def get_conn(self):
         if not hasattr(self, '_conn'):
             self._make_conn()
@@ -414,6 +521,7 @@ class CoaddCache(object):
 def make_cache_key(tilename, band):
     return '%s-%s' % (tilename, band)
 
+'''
 
 
 _QUERY_COADD_TEMPLATE="""
@@ -436,6 +544,29 @@ where
     and m.filetype='coadd'
     and fai.filename=m.filename
     and fai.archive_name='desar2home'\n"""
+
+_QUERY_COADD_TEMPLATE_BYTILE="""
+select
+    m.tilename as tilename,
+    fai.path as path,
+    fai.filename as filename,
+    fai.compression as compression,
+    m.band as band,
+    m.pfw_attempt_id as pfw_attempt_id
+
+from
+    prod.proctag t,
+    prod.coadd m,
+    prod.file_archive_info fai
+where
+    t.tag='{campaign}'
+    and t.pfw_attempt_id=m.pfw_attempt_id
+    and m.tilename='{tilename}'
+    and m.band='{band}'
+    and m.filetype='coadd'
+    and fai.filename=m.filename
+    and fai.archive_name='desar2home'\n"""
+
 
 _DOWNLOAD_CMD = r"""
     rsync \

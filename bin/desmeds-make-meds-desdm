@@ -2,6 +2,9 @@
 """
 Generate a meds file from the specified configuration and
 file set
+
+Unlike desmeds-make-meds, does not download any data
+or create null weight files
 """
 from __future__ import print_function
 import sys

@@ -13,13 +13,14 @@ from argparse import ArgumentParser
 parser=ArgumentParser()
 
 parser.add_argument('medsconf',help='DES MEDS configuration identifier')
-parser.add_argument('coadd_run',help='DES coadd run identifier (pre y2)')
+parser.add_argument('tilename',help='DES tilename')
 parser.add_argument('band',help='bandpass')
-parser.add_argument('-c','--check',action='store_true',
-                    help="check that files exist")
+
+parser.add_argument('--system', default="lsf",
+                    help="batch system")
 
 parser.add_argument('--extra',
-                    help="extra commands for script")
+                    help="extra commands for wq scripts")
 
 
 def main():
@@ -27,11 +28,12 @@ def main():
 
     generator = desmeds.batch.Generator(
         args.medsconf,
-        check=args.check,
+        args.tilename,
+        args.band,
         extra=args.extra,
+        system=args.system,
     )
-    generator.load_coadd(args.coadd_run, args.band)
-    generator.write_all()
+    generator.write()
 
 main()
 

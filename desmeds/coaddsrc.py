@@ -6,19 +6,62 @@ import numpy
 import fitsio
 
 from . import files
-from .coaddinfo import CoaddCache, Coadd, make_cache_key
+from .coaddinfo import Coadd
 
 class CoaddSrc(Coadd):
+    """
+    class to work with coadd sources (se images, etc.)
+    """
+    def __init__(self, *args, **kw):
+        super(CoaddSrc,self).__init__(*args, **kw)
+        self._set_finalcut_campaign()
+
     def get_info(self, tilename, band):
         """
         get info for the specified tilename and band
         """
-        info_list = self.cache.get_info(tilename, band)
+        info_list = self._do_query(tilename, band)
 
         # add full path info
         self._add_full_paths(info_list)
 
         return info_list
+
+    def _do_query(self, tilename, band):
+        """
+        get info for the specified tilename and band
+        """
+
+        query = _QUERY_COADD_SRC_BYTILE.format(
+            campaign=self.campaign,
+            finalcut_campaign=self.finalcut_campaign,
+            tilename=tilename,
+            band=band,
+        )
+
+        print(query)
+        conn = self.get_conn()
+        curs = conn.cursor()
+        curs.execute(query)
+
+        info_list=[]
+
+        for row in curs:
+            tile,path,fname,comp,band,pai,magzp = row
+            info = {
+                'tilename':tile,
+                'filename':fname,
+                'compression':comp,
+                'path':path,
+                'band':band,
+                'pfw_attempt_id':pai,
+                'magzp': magzp,
+            }
+
+            info_list.append(info)
+
+        return info_list
+
 
     def _add_full_paths(self, info_list):
         """
@@ -50,9 +93,6 @@ class CoaddSrc(Coadd):
                 info['filename'].replace('immasked.fits','psfexcat.psf')
             )
 
-
-    def _set_cache(self):
-        self.cache = CoaddSrcCache(self.campaign)
 
     def _get_all_dirs(self, info):
         dirs={}
@@ -90,13 +130,21 @@ class CoaddSrc(Coadd):
 
         return '/'.join(ps)
 
+    def _set_finalcut_campaign(self):
+        if self.campaign=='Y3A1_COADD':
+            self.finalcut_campaign='Y3A1_FINALCUT'
+        else:
+            raise ValueError("determine finalcut campaign "
+                             "for '%s'" % self.campaig)
+
+
     def download(self, *args):
         raise NotImplementedError("use Coadd to download")
     def remove(self, *args):
         raise NotImplementedError("use Coadd to remove")
 
 
-
+'''
 class CoaddSrcCache(CoaddCache):
     """
     cache to hold path info for the sources of all
@@ -223,19 +271,6 @@ class CoaddSrcCache(CoaddCache):
         return files.get_zp_cache_file(self.campaign)
 
 
-    '''
-    def _get_dtype(self):
-        return [ 
-            ('key','S14'),
-            ('tilename','S12'),
-            ('path','S65'),
-            ('filename','S40'),
-            ('compression','S3'),
-            ('band','S1'),
-            ('pfw_attempt_id','i8'),
-        ]
-    '''
-
     def _get_query(self):
         query = _QUERY_COADD_SRC.format(
             campaign=self.campaign,
@@ -280,6 +315,7 @@ class CoaddSrcCache(CoaddCache):
             raise ValueError("determine finalcut campaign "
                              "for '%s'" % self.campaig)
 
+'''
 #select imagename, mag_zero from ZEROPOINT where IMAGENAME='D00504555_z_c41_r2378p01_immasked.fits' and source='FGCM' and version='v2.0';
 
 _QUERY_COADD_SRC="""

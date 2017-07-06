@@ -71,10 +71,12 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
     """
     def __init__(self,
                  medsconf,
-                 fileconf):
+                 fileconf,
+                 tmpdir=None):
 
         self.medsconf=medsconf
         self.fileconf=fileconf
+        self.tmpdir=tmpdir
 
         self._load_config(medsconf)
         self._load_file_config(fileconf)
@@ -300,8 +302,11 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         self.update(default_config)
 
-        with open(medsconf) as fobj:
-            conf=yaml.load( fobj )
+        if isinstance(medsconf,dict):
+            conf=medsconf
+        else:
+            with open(medsconf) as fobj:
+                conf=yaml.load( fobj )
 
         util.check_for_required_config(conf, ['medsconf'])
         self.update(conf)
@@ -329,14 +334,29 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         fname=self.file_dict['meds_url']
         print("writing MEDS file:",fname)
 
-        use_tempdir=self.get('use_tempdir', False)
+        # this will do nothing if tmpdir is None; sf.path will
+        # in fact equal fname and no move is performed
 
-        if use_tempdir:
-            tmpdir=files.get_temp_dir()
-            with StagedOutFile(fname,tmpdir=tmpdir) as sf:
+        with StagedOutFile(fname,tmpdir=self.tmpdir) as sf:
+            if sf.path[-8:] == '.fits.fz':
+                local_fitsname = sf.path.replace('.fits.fz','.fits')
+
+                with TempFile(local_fitsname) as tfile:
+                    maker.write(tfile.path)
+
+                    # this will fpack to the proper path, which
+                    # will then be staged out if tmpdir is not None
+                    # if the name is wrong, the staging will fail and
+                    # an exception raised
+                    self._fpack_file(tfile.path)
+
+            else:
                 maker.write(sf.path)
-        else:
-            maker.write(fname)
+
+    def _fpack_file(self, fname):
+        cmd='fpack %s' % fname
+        print("fpacking with command: '%s'" % cmd)
+        subprocess.check_call(cmd,shell=True)
 
 class Preparator(dict):
     """
@@ -403,8 +423,15 @@ class Preparator(dict):
             self['band'],
         )
         if not os.path.exists(fname):
-            sources = self.coadd.get_sources()
-            objmap = sources.cache.get_objmap(info)
+
+            dir=os.path.dirname(fname)
+            if not os.path.exists(dir):
+                print("making directory:",dir)
+                os.makedirs(dir)
+
+            #sources = self.coadd.get_sources()
+            #objmap = sources.cache.get_objmap(info)
+            objmap = self.coadd.get_objmap(info)
             print(objmap)
             print("writing objmap:",fname)
             fitsio.write(fname, objmap, extname='OBJECTS',clobber=True)
@@ -463,10 +490,10 @@ class Preparator(dict):
             self['medsconf'],
             self['tilename'],
             self['band'],
-            ext='fits', # not yet fpacked
         )
         output={
             'band':self['band'],
+            'tilename':self['tilename'],
             'coadd_image_url':info['image_path'],
             'coadd_cat_url':info['cat_path'],
             'coadd_seg_url':info['seg_path'],
@@ -522,23 +549,41 @@ class Preparator(dict):
             )
 
     def _copy_psfs(self, info):
+        psfmap_file=files.get_meds_psfmap_file(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+
         psf_dir=files.get_psf_copy_dir(self['medsconf'], self['tilename'])
         if not os.path.exists(psf_dir):
             print("making directory:",psf_dir)
             os.makedirs(psf_dir)
 
-        print("copying psf files")
+        print("writing psfmap:",psfmap_file)
+        with open(psfmap_file,'w') as psfmap_fobj:
+            print("copying psf files")
 
-        psfs = self._get_psf_list(info)
-        for psf_file in psfs:
-            bname=os.path.basename(psf_file)
-            ofile = os.path.join(psf_dir, bname)
+            psfs = self._get_psf_list(info)
+            for psf_file in psfs:
+                bname=os.path.basename(psf_file)
+                ofile = os.path.join(psf_dir, bname)
 
-            if os.path.exists(ofile):
-                continue
+                fs=bname.split('_')
+                if 'DES' in fs[0]:
+                    # this is the coadd psf
+                    key=fs[0]
+                else:
+                    # single epoch psf
+                    key=fs[0]+'-'+fs[2][1:]
 
-            print("copying: %s -> %s" % (psf_file, ofile))
-            shutil.copy(psf_file, ofile)
+                psfmap_fobj.write("%s %s\n" % (key, ofile))
+
+                if os.path.exists(ofile):
+                    continue
+
+                print("copying: %s -> %s" % (psf_file, ofile))
+                shutil.copy(psf_file, ofile)
 
     def _get_psf_list(self, info):
         psfs = []

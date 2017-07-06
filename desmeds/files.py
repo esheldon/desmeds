@@ -250,7 +250,7 @@ def get_psf_copy_dir(medsconf, tilename):
     return os.path.join(dir, 'psfs')
 
 
-def get_meds_script_dir(medsconf):
+def get_meds_script(medsconf, tilename, band):
     """
     get the meds script directory
 
@@ -270,7 +270,7 @@ def get_meds_script_dir(medsconf):
     return get_meds_script_file_generic(medsconf, tilename, band, type, ext)
 
 
-def get_meds_script(medsconf, tilename, band):
+def get_meds_script_dir(medsconf):
     """
     get the meds script directory
 
@@ -310,6 +310,30 @@ def get_meds_file(medsconf, tilename, band, ext='fits.fz'):
                                      band,
                                      type,
                                      ext)
+
+def get_meds_psfmap_file(medsconf, tilename, band):
+    """
+    get the meds psf map file
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v01'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    type='psfmap'
+    ext='dat'
+    return get_meds_datafile_generic(medsconf,
+                                     tilename,
+                                     band,
+                                     type,
+                                     ext)
+
 
 def get_nullwt_file(medsconf, tilename, finalcut_file):
     """
@@ -508,6 +532,47 @@ def get_meds_datafile_generic(medsconf, tilename, band, type, ext):
     return os.path.join(dir, fname)
 
 
+
+def get_meds_lsf_file(medsconf, tilename, band):
+    """
+    get the meds wq script file for the given tilename and band
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config, e.g. 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    ext='lsf'
+    type='make-meds'
+    return get_meds_script_file_generic(medsconf, tilename, band, type, ext)
+
+def get_meds_log_file(medsconf, tilename, band):
+    """
+    get the meds file for the input coadd run, band
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v01'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    ext='log'
+    type='meds'
+    return get_meds_datafile_generic(medsconf,
+                                     tilename,
+                                     band,
+                                     type,
+                                     ext)
 
 
 
@@ -777,7 +842,7 @@ class TempFile(object):
 
     # using a context for the staged file
     fname="/home/jill/output.dat"
-    with TempFile(fname,tmpdir=tmpdir) as sf:
+    with TempFile(fname) as sf:
         with open(sf.path,'w') as fobj:
             fobj.write("some data")
 

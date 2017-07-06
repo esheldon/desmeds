@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 """
-    %prog [options] medsconf coadd_run band
-
-Create a MEDS file. Note the stubby file must already exist
+Create a MEDS file, downloading data and
+making input files if needed
 """
 from __future__ import print_function
 import sys
@@ -13,31 +12,71 @@ import desmeds
 from argparse import ArgumentParser
 parser=ArgumentParser()
 
-parser.add_argument('medsconf',help='DES MEDS configuration identifier')
-parser.add_argument('coadd_run',help='DES coadd run identifier (pre y2)')
-parser.add_argument('band',help='bandpass')
+parser.add_argument(
+    'medsconf',
+    help='meds configuration file',
+)
+parser.add_argument(
+    'tilename',
+    help='tilename to download',
+)
+parser.add_argument(
+    'band',
+    default=None,
+    help='band to download',
+)
 
-parser.add_argument('--from-stubby',action='store_true',
-                    help=('use an already existing stubby '
-                          'meds file, rather than generating '
-                          'the inputs, which requires db access'))
+parser.add_argument(
+    '--tmpdir',
+    default=None,
+    help=('use the specified temporary directory for writing'),
+)
+
+
+parser.add_argument(
+    '--noprep',
+    action='store_true',
+    help=("don't run the preparation code, which downloads all "
+          "relevant data and makes null weight files"),
+)
+parser.add_argument(
+    '--clean',
+    action='store_true',
+    help=('just remove all the generated nullwt files and exit'),
+)
 
 
 
 def main():
-    args=parser.parse_args()
 
-    if args.from_stubby:
-        do_inputs=False
-    else:
-        do_inputs=True
+    args = parser.parse_args()
 
-    maker = desmeds.DESMEDSMaker(args.medsconf,
-                                 args.coadd_run,
-                                 args.band,
-                                 do_inputs=do_inputs,
-                                 do_meds=True)
+    if (not args.noprep) or (args.clean):
+        prep=desmeds.desdm_maker.Preparator(
+            args.medsconf,
+            args.tilename,
+            args.band,
+        )
+
+        if args.clean:
+            print("cleaning null weight files")
+            prep.remove_nullwt()
+            return
+        else:
+            prep.go()
+
+    conf=desmeds.files.read_meds_config(args.medsconf)
+    fileconf=desmeds.files.get_desdm_file_config(
+        conf['medsconf'],
+        args.tilename,
+        args.band,
+    )
+    maker = desmeds.DESMEDSMakerDESDM(
+        conf,
+        fileconf,
+        tmpdir=args.tmpdir,
+    )
     maker.go()
 
-main()
-
+if __name__ == '__main__':
+    main()
