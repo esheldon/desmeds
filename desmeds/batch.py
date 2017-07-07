@@ -5,17 +5,24 @@ import os
 from . import files
 
 class Generator(dict):
-    def __init__(self, medsconf, tilename, band, extra=None, system='lsf'):
+    def __init__(self,
+                 medsconf,
+                 tilename,
+                 band,
+                 extra=None,
+                 system='lsf',
+                 missing=False):
 
         self['medsconf']=medsconf
         self['tilename']=tilename
         self['band']=band
+        self.system=system
+        self.missing=missing
         
         if extra is None:
             extra=''
 
         self['extra']=extra
-        self.system=system
 
         self['script_file']=files.get_meds_script(
             self['medsconf'],
@@ -29,12 +36,18 @@ class Generator(dict):
             self['band'],
         )
 
+        self['meds_file'] = files.get_meds_file(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+
+
     def write(self):
         """
         write the script and batch submission file
         """
 
-        self._write_script()
 
         if self.system=="lsf":
             self._write_lsf()
@@ -50,7 +63,7 @@ class Generator(dict):
 
         make_dirs(self['script_file'])
 
-        print("writing script:",self['script_file'])
+        #print("writing script:",self['script_file'])
         with open(self['script_file'],'w') as fobj:
             text=_script_template % self
             fobj.write(text)
@@ -67,6 +80,11 @@ class Generator(dict):
             self['band'],
         )
 
+        if self.missing and os.path.exists(self['meds_file']):
+            if os.path.exists(lsf_file):
+                os.remove(lsf_file)
+            return
+
         self['file_front']=os.path.basename(lsf_file.replace(".lsf",''))
 
         make_dirs(lsf_file)
@@ -75,6 +93,8 @@ class Generator(dict):
         with open(lsf_file,'w') as fobj:
             text=_lsf_template % self
             fobj.write(text)
+
+        self._write_script()
 
     def _write_wq(self, type):
         """
@@ -86,6 +106,11 @@ class Generator(dict):
             self['band'],
         )
 
+        if self.missing and os.path.exists(self['meds_file']):
+            if os.path.exists(wq_file):
+                os.remove(wq_file)
+            return
+
         make_dirs(wq_file)
         print('writing wq script:',wq_file)
 
@@ -93,6 +118,7 @@ class Generator(dict):
             text=_wq_make_meds_template % self
             fobj.write(text)
 
+        self._write_script()
 
 def make_dirs(*args):
 

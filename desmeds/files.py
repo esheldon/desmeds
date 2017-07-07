@@ -861,6 +861,7 @@ class TempFile(object):
 
         if not self.was_cleaned_up:
             if os.path.exists(self.path):
+                print("removing:",self.path)
                 os.remove(self.path)
 
             self.was_cleaned_up=True

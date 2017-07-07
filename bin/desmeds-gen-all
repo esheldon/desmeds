@@ -21,6 +21,9 @@ parser.add_argument('--system', default="lsf",
 
 parser.add_argument('--extra',
                     help="extra commands for wq scripts")
+parser.add_argument('--missing',
+                    action='store_true',
+                    help="only write scripts for missing files")
 
 
 def main():
@@ -32,6 +35,7 @@ def main():
         args.band,
         extra=args.extra,
         system=args.system,
+        missing=args.missing,
     )
     generator.write()
 
