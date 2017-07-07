@@ -3,8 +3,8 @@ import glob
 from distutils.core import setup
 
 scripts=[
-    'desmeds-gen-all',
-    'desmeds-gen-all-release',
+    'desmeds-make-batch',
+    'desmeds-make-batch-set',
     'desmeds-make-stubby-meds',
     'desmeds-make-meds-desdm',
     'desmeds-make-meds',
