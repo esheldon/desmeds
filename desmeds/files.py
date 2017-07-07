@@ -240,7 +240,7 @@ def get_meds_base():
     """
     return os.environ['MEDS_DIR']
 
-def get_meds_data_dir(medsconf, tilename):
+def get_meds_dir(medsconf, tilename):
     """
     get the meds data directory for the input coadd run
 
@@ -267,10 +267,10 @@ def get_nullwt_dir(medsconf, tilename):
         e.g. 'DES0417-5914'
     """
 
-    dir=get_meds_data_dir(medsconf, tilename)
+    dir=get_meds_dir(medsconf, tilename)
     return os.path.join(dir, 'nullwt')
 
-def get_psf_copy_dir(medsconf, tilename):
+def get_psf_dir(medsconf, tilename):
     """
     get the directory holding copies of the psf files
 
@@ -282,7 +282,7 @@ def get_psf_copy_dir(medsconf, tilename):
         e.g. 'DES0417-5914'
     """
 
-    dir=get_meds_data_dir(medsconf, tilename)
+    dir=get_meds_dir(medsconf, tilename)
     return os.path.join(dir, 'psfs')
 
 
@@ -347,7 +347,7 @@ def get_meds_file(medsconf, tilename, band, ext='fits.fz'):
                                      type,
                                      ext)
 
-def get_meds_psfmap_file(medsconf, tilename, band):
+def get_psfmap_file(medsconf, tilename, band):
     """
     get the meds psf map file
 
@@ -364,11 +364,13 @@ def get_meds_psfmap_file(medsconf, tilename, band):
 
     type='psfmap'
     ext='dat'
-    return get_meds_datafile_generic(medsconf,
-                                     tilename,
-                                     band,
-                                     type,
-                                     ext)
+    return get_meds_datafile_generic(
+        medsconf,
+        tilename,
+        band,
+        type,
+        ext,
+    )
 
 
 def get_nullwt_file(medsconf, tilename, finalcut_file):
@@ -538,7 +540,7 @@ def get_meds_coadd_objects_id_file(medsconf, coadd_run, band):
                                      ext)
 
 
-def get_meds_datafile_generic(medsconf, tilename, band, type, ext):
+def get_meds_datafile_generic(medsconf, tilename, band, type, ext, subdir=None):
     """
     get the meds directory for the input tilename
 
@@ -557,9 +559,15 @@ def get_meds_datafile_generic(medsconf, tilename, band, type, ext):
         extension, e.g. 'fits.fz' 'yaml' etc.
     """
 
-    dir = get_meds_data_dir(medsconf, tilename)
+    dir = get_meds_dir(medsconf, tilename)
 
-    fname='%(tilename)s-%(band)s-%(type)s-%(medsconf)s.%(ext)s'
+    if subdir is not None:
+        dir=os.path.join(dir, subdir)
+
+    # note bizarre pattern of dashes and underscores
+    # here we mimic DESDM
+
+    fname='%(tilename)s_%(band)s_%(type)s-%(medsconf)s.%(ext)s'
     fname = fname % dict(tilename=tilename,
                          band=band,
                          type=type,
@@ -1017,11 +1025,14 @@ def get_desdm_nullwt_flist(medsconf, tilename, band):
 
     type='nullwt-flist'
     ext='dat'
-    return get_meds_datafile_generic(medsconf,
-                                     tilename,
-                                     band,
-                                     type,
-                                     ext)
+    return get_meds_datafile_generic(
+        medsconf,
+        tilename,
+        band,
+        type,
+        ext,
+        subdir='lists',
+    )
 
 
 def get_desdm_seg_flist(medsconf, tilename, band):
@@ -1041,11 +1052,16 @@ def get_desdm_seg_flist(medsconf, tilename, band):
 
     type='seg-flist'
     ext='dat'
-    return get_meds_datafile_generic(medsconf,
-                                     tilename,
-                                     band,
-                                     type,
-                                     ext)
+
+    return get_meds_datafile_generic(
+        medsconf,
+        tilename,
+        band,
+        type,
+        ext,
+        subdir='lists',
+    )
+
 
 def get_desdm_bkg_flist(medsconf, tilename, band):
     """
@@ -1064,11 +1080,17 @@ def get_desdm_bkg_flist(medsconf, tilename, band):
 
     type='bkg-flist'
     ext='dat'
-    return get_meds_datafile_generic(medsconf,
-                                     tilename,
-                                     band,
-                                     type,
-                                     ext)
+
+    return get_meds_datafile_generic(
+        medsconf,
+        tilename,
+        band,
+        type,
+        ext,
+        subdir='lists',
+    )
+
+
 def get_desdm_objmap(medsconf, tilename, band):
     """
     the desdm version needs a map
@@ -1086,9 +1108,13 @@ def get_desdm_objmap(medsconf, tilename, band):
 
     type='objmap'
     ext='fits'
-    return get_meds_datafile_generic(medsconf,
-                                     tilename,
-                                     band,
-                                     type,
-                                     ext)
+    return get_meds_datafile_generic(
+        medsconf,
+        tilename,
+        band,
+        type,
+        ext,
+        subdir='lists',
+    )
+
 

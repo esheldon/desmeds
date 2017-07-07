@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 """
-    %prog [options] medsconf coadd_run band
-
-Generate the inputs and batch scripts for the specified coadd run and band
+Generate batch scripts to make meds files
 """
 from __future__ import print_function
 import sys
@@ -12,7 +10,6 @@ import desmeds
 from argparse import ArgumentParser
 parser=ArgumentParser()
 
-parser.add_argument('medsconf',help='DES MEDS configuration identifier')
 parser.add_argument('tileset',help='DES tilename')
 
 parser.add_argument('--system', default="lsf",
@@ -20,6 +17,7 @@ parser.add_argument('--system', default="lsf",
 
 parser.add_argument('--extra',
                     help="extra commands for wq scripts")
+
 parser.add_argument('--missing',
                     action='store_true',
                     help="only write scripts for missing files")
@@ -30,13 +28,13 @@ def main():
 
     tileset=desmeds.files.read_tileset(args.tileset)
 
-    ntile=len(tileset['tilenames'])
+    ntile=len(tileset['tile_ids'])
 
-    for i,tilename in enumerate(tileset['tilenames']):
+    for i,tilename in enumerate(tileset['tile_ids']):
         print("%s %d/%d" % (tilename,i+1,ntile))
         for band in tileset['bands']:
             generator = desmeds.batch.Generator(
-                args.medsconf,
+                tileset['medsconf'],
                 tilename,
                 band,
                 extra=args.extra,

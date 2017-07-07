@@ -549,13 +549,13 @@ class Preparator(dict):
             )
 
     def _copy_psfs(self, info):
-        psfmap_file=files.get_meds_psfmap_file(
+        psfmap_file=files.get_psfmap_file(
             self['medsconf'],
             self['tilename'],
             self['band'],
         )
 
-        psf_dir=files.get_psf_copy_dir(self['medsconf'], self['tilename'])
+        psf_dir=files.get_psf_dir(self['medsconf'], self['tilename'])
         if not os.path.exists(psf_dir):
             print("making directory:",psf_dir)
             os.makedirs(psf_dir)
@@ -571,13 +571,16 @@ class Preparator(dict):
 
                 fs=bname.split('_')
                 if 'DES' in fs[0]:
-                    # this is the coadd psf
-                    key=fs[0]
+                    # this is the coadd psf, so fake it
+                    expnum = -9999
+                    ccdnum = -9999
+
                 else:
                     # single epoch psf
-                    key=fs[0]+'-'+fs[2][1:]
+                    expnum = fs[0][1:]
+                    ccdnum = fs[2][1:]
 
-                psfmap_fobj.write("%s %s\n" % (key, ofile))
+                psfmap_fobj.write("%s %s %s\n" % (expnum, ccdnum, ofile))
 
                 if os.path.exists(ofile):
                     continue
