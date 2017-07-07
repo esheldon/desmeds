@@ -103,6 +103,20 @@ def get_meds_config_file(medsconf):
     fname='meds-%s.yaml' % medsconf
     return os.path.join(dir, fname)
 
+def get_tileset_file(tileset):
+    """
+    get the tileset yaml file
+
+    parameters
+    ----------
+    tileset: string
+        Identifier for the tileset, e.g. "y3-test01" or the
+        full path
+    """
+    dir=get_config_dir()
+    fname='tileset-%s.yaml' % tileset
+    return os.path.join(dir, fname)
+
 
 def read_meds_config(medsconf):
     """
@@ -130,6 +144,28 @@ def read_meds_config(medsconf):
     if data['medsconf'] != vers:
         raise ValueError("version mismatch: found '%s' rather "
                          "than '%s'" % (data['medsconf'], vers))
+    return data
+
+def read_tileset(tileset):
+    """
+    read the tile set
+
+    parameters
+    ----------
+    tileset: string
+        Identifier for the tileset, e.g. "y3-test01" or the
+        full path
+    """
+
+    if '.yaml' in tileset:
+        fname=tileset
+    else:
+        fname=get_tileset_file(tileset)
+
+    print("reading:",fname)
+    with open(fname) as fobj:
+        data=yaml.load(fobj)
+
     return data
 
 

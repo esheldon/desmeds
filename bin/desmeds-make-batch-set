@@ -1,116 +1,49 @@
 #!/usr/bin/env python
+"""
+    %prog [options] medsconf coadd_run band
+
+Generate the inputs and batch scripts for the specified coadd run and band
+"""
 from __future__ import print_function
-import os,sys
-import desdb
+import sys
+import os
 import desmeds
-from desmeds import files
-
-
 
 from argparse import ArgumentParser
-
 parser=ArgumentParser()
 
-parser.add_argument('medsconf',
-                    help="meds configuration identifier")
-parser.add_argument('--clobber',action='store_true',
-                    help=("don't write scripts even if they already "
-                          "exist; useful when doing slow check"))
-parser.add_argument('--missing',action='store_true',
-                    help="only write if meds file does not exist")
+parser.add_argument('medsconf',help='DES MEDS configuration identifier')
+parser.add_argument('tileset',help='DES tilename')
 
-parser.add_argument('-b','--bands',default=None,
-                    help="bands to do, default all. csv")
-
-parser.add_argument('-c','--check',action='store_true',
-                    help="check that files exist")
+parser.add_argument('--system', default="lsf",
+                    help="batch system")
 
 parser.add_argument('--extra',
-                    help="extra commands for script")
-
-
-_df=desdb.DESFiles()
+                    help="extra commands for wq scripts")
+parser.add_argument('--missing',
+                    action='store_true',
+                    help="only write scripts for missing files")
 
 
 def main():
     args=parser.parse_args()
 
-    gen=desmeds.batch.Generator(
-        args.medsconf,
-        check=args.check,
-        extra=args.extra,
-    )
+    tileset=desmeds.files.read_tileset(args.tileset)
 
-    # try to make meds files for all the 'bands', but only
-    # for tiles 'withbands'
-    conf=gen.conf
-    if args.bands is not None:
-        bands=args.bands.split(',')
-        mbands=conf['bands']
-        for band in bands:
-            if band not in mbands:
-                raise ValueError("band '%s' not in meds conf" % band)
-    else:
-        bands=conf['bands']
+    ntile=len(tileset['tilenames'])
 
-    print("making meds for bands:",bands)
-    print("requiring withbands:",conf['withbands'])
+    for i,tilename in enumerate(tileset['tilenames']):
+        print("%s %d/%d" % (tilename,i+1,ntile))
+        for band in tileset['bands']:
+            generator = desmeds.batch.Generator(
+                args.medsconf,
+                tilename,
+                band,
+                extra=args.extra,
+                system=args.system,
+                missing=args.missing,
+            )
+            generator.write()
 
-    if 'testbed' in conf:
-        coadd_runs = desmeds.files.get_testbed_runs(conf['testbed'],
-                                                    withbands=conf['withbands'])
-    else:
-        coadd_runs = desdb.files.get_release_runs(conf['release'],
-                                                  withbands=conf['withbands'])
-    nruns=len(coadd_runs)
-    print("found",nruns,"runs")
-
-    ntot = nruns*len(bands)
-
-    itot=0
-    nmissing=0
-    for i,coadd_run in enumerate(coadd_runs):
-        tilename = files.coadd_run_to_tilename(coadd_run)
-
-        for band in bands:
-
-            print('-'*70)
-            print('%d/%d: %s %s' % (itot+1,ntot,coadd_run,band))
-
-            itot += 1
-
-            # because we might have a different "withbands" and "bands" we need
-            # to check the coadd cat is here
-
-            coadd_cat_file=_df.url(type='coadd_cat',
-                                   coadd_run=coadd_run,
-                                   tilename=tilename,
-                                   band=band)
-
-            meds_file = files.get_meds_file(args.medsconf,
-                                            coadd_run,
-                                            band)
-            wq_file = files.get_meds_wq_file(args.medsconf,
-                                             coadd_run,
-                                             band)
-
-
-            if args.missing and os.path.exists(meds_file):
-                print("skipping because meds file already exists")
-                continue
-
-            if not os.path.exists(coadd_cat_file):
-                print("skipping because coadd does not exist for this band")
-                continue
-
-            if not args.clobber and os.path.exists(wq_file):
-                print("skipping because wq file exists")
-                continue
-
-            nmissing += gen.load_coadd(coadd_run, band)
-            gen.write_all()
-
-    if args.check:
-        print("total missing:",nmissing)
 main()
 

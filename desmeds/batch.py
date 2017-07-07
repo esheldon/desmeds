@@ -63,7 +63,7 @@ class Generator(dict):
 
         make_dirs(self['script_file'])
 
-        #print("writing script:",self['script_file'])
+        #print("    writing script:",self['script_file'])
         with open(self['script_file'],'w') as fobj:
             text=_script_template % self
             fobj.write(text)
@@ -89,7 +89,7 @@ class Generator(dict):
 
         make_dirs(lsf_file)
 
-        print("writing lsf script:",lsf_file)
+        print("    writing lsf script:",lsf_file)
         with open(lsf_file,'w') as fobj:
             text=_lsf_template % self
             fobj.write(text)
@@ -112,7 +112,7 @@ class Generator(dict):
             return
 
         make_dirs(wq_file)
-        print('writing wq script:',wq_file)
+        print('    writing wq script:',wq_file)
 
         with open(wq_file,'w') as fobj:
             text=_wq_make_meds_template % self
@@ -125,7 +125,7 @@ def make_dirs(*args):
     for f in args:
         d=os.path.dirname(f)
         if not os.path.exists(d):
-            print('making dir:',d)
+            print('    making dir:',d)
             try:
                 os.makedirs(d)
             except:
