@@ -13,7 +13,10 @@ def get_desdata():
     """
     get the environment variable DESDATA
     """
-    return os.environ['DESDATA']
+    dir=os.environ['DESDATA']
+    if dir[-1] == '/':
+        dir = dir[0:-1]
+    return dir
 
 def get_nwgint_config(campaign):
     """
@@ -238,7 +241,11 @@ def get_meds_base():
     """
     The base directory $DESDATA/meds
     """
-    return os.environ['MEDS_DIR']
+    dir = os.environ['MEDS_DIR']
+    if dir[-1] == '/':
+        dir = dir[0:-1]
+    return dir
+
 
 def get_meds_dir(medsconf, tilename):
     """

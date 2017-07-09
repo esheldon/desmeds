@@ -549,6 +549,9 @@ class Preparator(dict):
             )
 
     def _copy_psfs(self, info):
+
+        medsdir=files.get_meds_base()
+
         psfmap_file=files.get_psfmap_file(
             self['medsconf'],
             self['tilename'],
@@ -580,7 +583,8 @@ class Preparator(dict):
                     expnum = fs[0][1:]
                     ccdnum = fs[2][1:]
 
-                psfmap_fobj.write("%s %s %s\n" % (expnum, ccdnum, ofile))
+                ofile_medsdir=ofile.replace(medsdir, '$MEDS_DIR')
+                psfmap_fobj.write("%s %s %s\n" % (expnum, ccdnum, ofile_medsdir))
 
                 if os.path.exists(ofile):
                     continue
