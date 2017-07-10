@@ -1009,11 +1009,14 @@ def get_desdm_file_config(medsconf, tilename, band):
 
     type='fileconf'
     ext='yaml'
-    return get_meds_datafile_generic(medsconf,
-                                     tilename,
-                                     band,
-                                     type,
-                                     ext)
+    return get_meds_datafile_generic(
+        medsconf,
+        tilename,
+        band,
+        type,
+        ext,
+        subdir='lists',
+    )
 
 def get_desdm_nullwt_flist(medsconf, tilename, band):
     """
