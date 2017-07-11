@@ -6,6 +6,8 @@ object
 
 """
 
+__version__= "0.9.2rc2"
+
 # sextractor names
 default_config = {
     # we read the coadd catalog from detband

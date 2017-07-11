@@ -30,6 +30,8 @@ from . import util
 
 from . import util
 from . import files
+
+from . import defaults
 from .defaults import default_config
 
 from .files import \
@@ -341,10 +343,13 @@ class DESMEDSMaker(dict):
         """
         get the metadata data type
         """
-        dt = [('magzp_ref','f8'),
-              ('DESDATA','S%d' % len('${DESDATA}')),
-              ('medsconf','S%d' % len(self['medsconf'])),
-              ('config','S%d' % len(cfg))]
+        dt = [
+            ('magzp_ref','f8'),
+            ('DESDATA','S%d' % len('${DESDATA}')),
+            ('medsconf','S%d' % len(self['medsconf'])),
+            ('config','S%d' % len(cfg)),
+            ('desmeds_version','S%d' % len(defaults.__version__)),
+        ]
         return dt
 
     def _build_meta_data(self):
@@ -361,6 +366,8 @@ class DESMEDSMaker(dict):
         meta_data['DESDATA'] = '${DESDATA}'
         meta_data['medsconf'] = self['medsconf']
         meta_data['config'] = cfg
+        meta_data['desmeds_version'] = defaults.__version__
+
         self.meta_data = meta_data
 
     def _get_coadd_objects_ids(self):
