@@ -134,7 +134,7 @@ def make_dirs(*args):
 _lsf_template=r"""#!/bin/bash
 #BSUB -J "meds-%(tilename)s-%(band)s"
 #BSUB -oo ./%(file_front)s.oe
-#BSUB -R "linux64 && rhel60 && scratch > 20"
+#BSUB -R "linux64 && rhel60 && (scratch > 20) && (!deft)"
 #BSUB -n 1
 #BSUB -W 12:00
 
