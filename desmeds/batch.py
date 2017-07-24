@@ -78,14 +78,20 @@ class Generator(dict):
             self['medsconf'],
             self['tilename'],
             self['band'],
+            missing=self.missing,
         )
 
         if self.missing and os.path.exists(self['meds_file']):
             if os.path.exists(lsf_file):
                 os.remove(lsf_file)
+            sub=lsf_file+'.submitted'
+            if os.path.exists(sub):
+                os.remove(sub)
             return
 
-        self['file_front']=os.path.basename(lsf_file.replace(".lsf",''))
+        self['file_front']=os.path.basename(
+            lsf_file.replace(".lsf",'').replace('-missing','')
+        )
 
         make_dirs(lsf_file)
 
@@ -104,11 +110,15 @@ class Generator(dict):
             self['medsconf'],
             self['tilename'],
             self['band'],
+            missing=self.missing,
         )
 
         if self.missing and os.path.exists(self['meds_file']):
             if os.path.exists(wq_file):
                 os.remove(wq_file)
+            wqlog=wq_file+'.wqlog'
+            if os.path.exists(wqlog):
+                os.remove(wqlog)
             return
 
         make_dirs(wq_file)
