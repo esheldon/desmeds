@@ -383,6 +383,8 @@ where
     and z.imagename = j.filename
     and z.source='FGCM'
     and z.version='v2.0'
+order by
+    filename
 """
 
 
