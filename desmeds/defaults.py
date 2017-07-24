@@ -6,7 +6,7 @@ object
 
 """
 
-__version__= "0.9.2rc2"
+__version__= "0.9.2"
 
 # sextractor names
 default_config = {
