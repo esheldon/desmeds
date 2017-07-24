@@ -584,7 +584,7 @@ def get_meds_datafile_generic(medsconf, tilename, band, type, ext, subdir=None):
 
 
 
-def get_meds_lsf_file(medsconf, tilename, band):
+def get_meds_lsf_file(medsconf, tilename, band, missing=False):
     """
     get the meds wq script file for the given tilename and band
 
@@ -600,6 +600,9 @@ def get_meds_lsf_file(medsconf, tilename, band):
 
     ext='lsf'
     type='make-meds'
+    if missing:
+        type += '-missing'
+
     return get_meds_script_file_generic(medsconf, tilename, band, type, ext)
 
 def get_meds_log_file(medsconf, tilename, band):
@@ -627,7 +630,7 @@ def get_meds_log_file(medsconf, tilename, band):
 
 
 
-def get_meds_wq_file(medsconf, tilename, band):
+def get_meds_wq_file(medsconf, tilename, band, missing=False):
     """
     get the meds wq script file for the given tilename and band
 
@@ -644,6 +647,9 @@ def get_meds_wq_file(medsconf, tilename, band):
 
     ext='yaml'
     type='make-meds'
+    if missing:
+        type += '-missing'
+
     return get_meds_script_file_generic(medsconf, tilename, band, type, ext)
 
 def get_meds_stubby_wq_file(medsconf, tilename, band):
