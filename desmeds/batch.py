@@ -144,9 +144,10 @@ def make_dirs(*args):
 _lsf_template=r"""#!/bin/bash
 #BSUB -J "meds-%(tilename)s-%(band)s"
 #BSUB -oo ./%(file_front)s.oe
+#BSUB -n 2
+#BSUB -R span[hosts=1]
 #BSUB -R "linux64 && rhel60 && (scratch > 20) && (!deft)"
-#BSUB -n 1
-#BSUB -W 12:00
+#BSUB -We 48:00
 
 export TMPDIR=/scratch/$USER/$LSB_JOBID-$LSB_JOBINDEX
 
@@ -184,6 +185,7 @@ command: |
     rm -rv $tmpdir
 
 job_name: "meds-%(tilename)s-%(band)s"
+N: 2
 """
 
 _script_template=r"""#!/bin/bash
