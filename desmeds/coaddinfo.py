@@ -56,6 +56,10 @@ class Coadd(dict):
         download sources for a single tile and band
         """
 
+        if not os.path.exists(self['source_dir']):
+            print("making source dir:",self['source_dir'])
+            os.makedirs(self['source_dir'])
+
         info=self.get_info()
 
         self['flist_file']=self._write_download_flist(info)
