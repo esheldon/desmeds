@@ -88,13 +88,16 @@ class Generator(dict):
             missing=self.missing,
         )
 
+        subfile=lsf_file+'.submitted'
         if self.missing and os.path.exists(self['meds_file']):
             if os.path.exists(lsf_file):
                 os.remove(lsf_file)
-            sub=lsf_file+'.submitted'
-            if os.path.exists(sub):
-                os.remove(sub)
+            if os.path.exists(subfile):
+                os.remove(subfile)
             return
+
+        if os.path.exists(subfile):
+            os.remove(subfile)
 
         self['file_front']=os.path.basename(
             lsf_file.replace(".lsf",'').replace('-missing','')
@@ -154,7 +157,7 @@ _lsf_template=r"""#!/bin/bash
 #BSUB -n 2
 #BSUB -R span[hosts=1]
 #BSUB -R "linux64 && rhel60 && (scratch > 20) && (!deft)"
-#BSUB -We 48:00
+#BSUB -W 48:00
 
 export TMPDIR=/scratch/$USER/$LSB_JOBID-$LSB_JOBINDEX
 
