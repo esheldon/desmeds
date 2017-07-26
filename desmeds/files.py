@@ -3,12 +3,6 @@ import os
 import yaml
 import tempfile
 
-# desdb is not needed in all scenarios
-try:
-    import desdb
-except ImportError:
-    pass
-
 def get_desdata():
     """
     get the environment variable DESDATA
@@ -38,6 +32,7 @@ def get_config_dir():
         raise RuntimeError("you need to define $DESMEDS_CONFIG_DIR")
     return os.environ['DESMEDS_CONFIG_DIR']
 
+'''
 def get_list_dir():
     """
     directory holding lists and caches
@@ -89,7 +84,7 @@ def get_zp_cache_file(campaign):
 
     fname = os.path.join(dir, fname)
     return fname
-
+'''
 
 def get_meds_config_file(medsconf):
     """
@@ -207,32 +202,6 @@ def read_testbed_config(testbed):
 
     return data
 
-def get_testbed_runs(testbed, withbands=None):
-    """
-    read the testbed config and get the runlist
-    """
-    import desdb
-
-
-    data=read_testbed_config(testbed)
-
-    print("getting runs for testbed:",testbed)
-    allruns=desdb.files.get_release_runs(data['release'],
-                                         withbands=withbands)
-
-    keeptiles=data['tilenames']
-
-    runs=[]
-    for tile in keeptiles:
-        for run in allruns:
-            if tile in run:
-                runs.append(run)
-                continue
-
-    print("kept %d/%d runs" % (len(runs), len(allruns)))
-    return runs
-
-
 #
 # directories
 #
@@ -262,7 +231,23 @@ def get_meds_dir(medsconf, tilename):
     bdir = get_meds_base()
     return os.path.join(bdir, medsconf, tilename)
 
-def get_nullwt_dir(medsconf, tilename):
+def get_source_dir(medsconf, tilename, band):
+    """
+    get the directory to hold input sources for MEDS files
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    """
+
+    dir=get_meds_dir(medsconf, tilename)
+    return os.path.join(dir, 'sources-%s' % band)
+
+
+def get_nullwt_dir(medsconf, tilename, band):
     """
     get the directory for the null weight image
 
@@ -275,7 +260,7 @@ def get_nullwt_dir(medsconf, tilename):
     """
 
     dir=get_meds_dir(medsconf, tilename)
-    return os.path.join(dir, 'nullwt')
+    return os.path.join(dir, 'nullwt-%s' % band)
 
 def get_psf_dir(medsconf, tilename):
     """
@@ -380,7 +365,7 @@ def get_psfmap_file(medsconf, tilename, band):
     )
 
 
-def get_nullwt_file(medsconf, tilename, finalcut_file):
+def get_nullwt_file(medsconf, tilename, band, finalcut_file):
     """
     get the meds file for the input coadd run, band
 
@@ -395,7 +380,7 @@ def get_nullwt_file(medsconf, tilename, finalcut_file):
         name of original finalcut file
     """
 
-    dir=get_nullwt_dir(medsconf, tilename)
+    dir=get_nullwt_dir(medsconf, tilename, band)
 
     # original will be something like D00499389_r_c21_r2378p01_immasked.fits.fz
     bname=os.path.basename(finalcut_file)

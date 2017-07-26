@@ -40,7 +40,7 @@ parser.add_argument(
           "relevant data and makes null weight files"),
 )
 parser.add_argument(
-    '--clean',
+    '--noclean',
     action='store_true',
     help=('just remove all the generated nullwt files and exit'),
 )
@@ -51,19 +51,14 @@ def main():
 
     args = parser.parse_args()
 
-    if (not args.noprep) or (args.clean):
-        prep=desmeds.desdm_maker.Preparator(
-            args.medsconf,
-            args.tilename,
-            args.band,
-        )
+    prep=desmeds.desdm_maker.Preparator(
+        args.medsconf,
+        args.tilename,
+        args.band,
+    )
 
-        if args.clean:
-            print("cleaning null weight files")
-            prep.remove_nullwt()
-            return
-        else:
-            prep.go()
+    if not args.noprep:
+        prep.go()
 
     conf=desmeds.files.read_meds_config(args.medsconf)
     fileconf=desmeds.files.get_desdm_file_config(
@@ -77,6 +72,9 @@ def main():
         tmpdir=args.tmpdir,
     )
     maker.go()
+
+    if not args.noclean:
+        prep.clean()
 
 if __name__ == '__main__':
     main()

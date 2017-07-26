@@ -36,6 +36,13 @@ class Generator(dict):
             self['band'],
         )
 
+        self['source_dir'] = files.get_source_dir(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+
+
         self['meds_file'] = files.get_meds_file(
             self['medsconf'],
             self['tilename'],

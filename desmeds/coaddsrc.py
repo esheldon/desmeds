@@ -16,28 +16,29 @@ class CoaddSrc(Coadd):
         super(CoaddSrc,self).__init__(*args, **kw)
         self._set_finalcut_campaign()
 
-    def get_info(self, tilename, band):
+    def get_info(self):
         """
         get info for the specified tilename and band
         """
-        info_list = self._do_query(tilename, band)
 
-        # add full path info
-        self._add_full_paths(info_list)
+        if hasattr(self,'_info_list'):
+            info_list=self._info_list
+        else:
+            info_list = self._do_query()
+
+            # add full path info
+            self._add_full_paths(info_list)
+
+            self._info_list=info_list
 
         return info_list
 
-    def _do_query(self, tilename, band):
+    def _do_query(self):
         """
         get info for the specified tilename and band
         """
 
-        query = _QUERY_COADD_SRC_BYTILE.format(
-            campaign=self.campaign,
-            finalcut_campaign=self.finalcut_campaign,
-            tilename=tilename,
-            band=band,
-        )
+        query = _QUERY_COADD_SRC_BYTILE % self
 
         print(query)
         conn = self.get_conn()
@@ -131,11 +132,11 @@ class CoaddSrc(Coadd):
         return '/'.join(ps)
 
     def _set_finalcut_campaign(self):
-        if self.campaign=='Y3A1_COADD':
-            self.finalcut_campaign='Y3A1_FINALCUT'
+        if self['campaign']=='Y3A1_COADD':
+            self['finalcut_campaign']='Y3A1_FINALCUT'
         else:
             raise ValueError("determine finalcut campaign "
-                             "for '%s'" % self.campaig)
+                             "for '%s'" % self['campaign'])
 
 
     def download(self, *args):
@@ -369,16 +370,16 @@ from
     file_archive_info fai,
     zeropoint z
 where
-    tme.tag='{campaign}'
+    tme.tag='%(campaign)s'
     and tme.pfw_attempt_id=i.pfw_attempt_id
     and i.filetype='coadd_nwgint'
-    and i.tilename='{tilename}'
+    and i.tilename='%(tilename)s'
     and i.expnum=j.expnum
     and i.ccdnum=j.ccdnum
     and j.filetype='red_immask'
     and j.pfw_attempt_id=tse.pfw_attempt_id
-    and j.band='{band}'
-    and tse.tag='{finalcut_campaign}'
+    and j.band='%(band)s'
+    and tse.tag='%(finalcut_campaign)s'
     and fai.filename=j.filename
     and z.imagename = j.filename
     and z.source='FGCM'

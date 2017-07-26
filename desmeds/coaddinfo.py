@@ -8,62 +8,74 @@ import subprocess
 
 from . import files
 
-class Coadd(object):
+class Coadd(dict):
     """
     information for coadds.  Can use the download() method to copy
     to the local disk heirchy
     """
-    def __init__(self, campaign='Y3A1_COADD', src=None, sources=None):
-        self.campaign=campaign.upper()
+    def __init__(self, medsconf, tilename, band, campaign='Y3A1_COADD', src=None, sources=None):
+
+        self['medsconf'] = medsconf
+        self['tilename'] = tilename
+        self['band'] = band
+
+        self['source_dir']=files.get_source_dir(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+
+        self['campaign']=campaign.upper()
         self.sources=sources
 
-    def get_info(self, tilename, band):
+    def get_info(self):
         """
-        get info for the specified tilename and band
+        get info for the tilename and band
 
         if sources were sent to the constructor, add source info as well
         """
-        info = self._do_query(tilename, band)
 
-        # add full path info
-        self._add_full_paths(info)
+        if hasattr(self, '_info'):
+            info = self._info
+        else:
+            info = self._do_query()
 
-        sources=self.get_sources()
-        if sources is not None:
-            self._add_src_info(info, tilename, band)
+            # add full path info
+            self._add_full_paths(info)
+
+            sources=self.get_sources()
+            if sources is not None:
+                self._add_src_info(info)
+
+            self._info=info
 
         return info
 
-    def download(self, tilename, band):
+    def download(self):
         """
         download sources for a single tile and band
         """
 
-        info=self.get_info(tilename,band)
+        info=self.get_info()
 
-        flist_file=self._write_download_flist(info)
+        self['flist_file']=self._write_download_flist(info)
 
-        cmd=_DOWNLOAD_CMD % flist_file
+        cmd=_DOWNLOAD_CMD % self
 
         try:
             subprocess.check_call(cmd,shell=True)
         finally:
-            files.try_remove(flist_file)
+            files.try_remove(self['flist_file'])
 
         return info
         
-    def remove(self, tilename, band):
+    def clean(self):
         """
         remove downloaded files for the specified tile and band
         """
 
-        info=self.get_info(tilename,band)
-        flist=self._get_download_flist(info)
-
-        for fname in flist:
-            if os.path.exists(fname):
-                print("removing:",fname)
-                files.try_remove(fname)
+        print("removing sources:",self['source_dir'])
+        shutil.rmtree(self['source_dir'])
 
     def get_objmap(self, info):
         """
@@ -98,16 +110,12 @@ class Coadd(object):
         """
         return self.sources
 
-    def _do_query(self, tilename, band):
+    def _do_query(self):
         """
         get info for the specified tilename and band
         """
         
-        query = _QUERY_COADD_TEMPLATE_BYTILE.format(
-            campaign=self.campaign,
-            tilename=tilename,
-            band=band,
-        )
+        query = _QUERY_COADD_TEMPLATE_BYTILE % self
 
         print(query)
         conn=self.get_conn()
@@ -169,12 +177,12 @@ class Coadd(object):
             the src_info
 
         no_prefix: bool 
-            If True, the $DESDATA/ is removed from the front
+            If True, the {source_dir} is removed from the front
         """
-        desdata=files.get_desdata()
+        source_dir=self['source_dir']
 
-        if desdata[-1] != '/':
-            desdata += '/'
+        if source_dir[-1] != '/':
+            source_dir += '/'
 
         types=self._get_download_types()
         stypes=self._get_source_download_types()
@@ -186,7 +194,7 @@ class Coadd(object):
             fname = info[tname]
 
             if no_prefix:
-                fname = fname.replace(desdata, '')
+                fname = fname.replace(source_dir, '')
 
             flist.append(fname)
 
@@ -198,7 +206,7 @@ class Coadd(object):
                     fname = sinfo[tname]
 
                     if no_prefix:
-                        fname = fname.replace(desdata, '')
+                        fname = fname.replace(source_dir, '')
 
                     flist.append(fname)
 
@@ -233,13 +241,13 @@ class Coadd(object):
         return ['image','bkg','seg','psf','head']
 
 
-    def _add_src_info(self, info, tilename, band):
+    def _add_src_info(self, info):
         """
         get path info for the input single-epoch sources
         """
 
         sources=self.get_sources()
-        src_info = self.sources.get_info(tilename, band=band)
+        src_info = self.sources.get_info()
 
         self._add_head_full_paths(info, src_info)
 
@@ -294,7 +302,8 @@ class Coadd(object):
         return dirs
 
     def _get_dirs(self, path, type=None):
-        local_dir = '$DESDATA/%s' % path
+        #local_dir = '$DESDATA/%s' % path
+        local_dir = '%s/%s' % (self['source_dir'], path)
         remote_dir = '$DESREMOTE_RSYNC/%s' % path
 
         local_dir=os.path.expandvars(local_dir)
@@ -559,10 +568,10 @@ from
     prod.coadd m,
     prod.file_archive_info fai
 where
-    t.tag='{campaign}'
+    t.tag='%(campaign)s'
     and t.pfw_attempt_id=m.pfw_attempt_id
-    and m.tilename='{tilename}'
-    and m.band='{band}'
+    and m.tilename='%(tilename)s'
+    and m.band='%(band)s'
     and m.filetype='coadd'
     and fai.filename=m.filename
     and fai.archive_name='desar2home'\n"""
@@ -572,17 +581,9 @@ _DOWNLOAD_CMD = r"""
     rsync \
         -av \
         --password-file $DES_RSYNC_PASSFILE \
-        --files-from=%s \
+        --files-from=%(flist_file)s \
         ${DESREMOTE_RSYNC}/ \
-        ${DESDATA}/ 
-"""
-_DOWNLOAD_AUX_CMD = r"""
-    rsync \
-        -av \
-        --password-file $DES_RSYNC_PASSFILE \
-        --files-from=%s \
-        ${DESREMOTE_RSYNC}/ \
-        ${DESDATA}/ 
+        %(source_dir)s/ 
 """
 
 _OBJECT_MAP_QUERY = """

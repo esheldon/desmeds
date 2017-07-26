@@ -380,8 +380,25 @@ class Preparator(dict):
         self['tilename']=tilename
         self['band']=band
 
-        csrc=CoaddSrc(campaign=self['campaign'])
-        self.coadd=Coadd(campaign=self['campaign'], sources=csrc)
+        csrc=CoaddSrc(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+            campaign=self['campaign'],
+        )
+
+        self.coadd=Coadd(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+            campaign=self['campaign'],
+            sources=csrc,
+        )
+        self['nullwt_dir']=files.get_nullwt_dir(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
 
 
     def go(self):
@@ -389,7 +406,7 @@ class Preparator(dict):
         download the data and make the null weight images
         """
         print("downloading all data")
-        info = self.coadd.download(self['tilename'], self['band'])
+        info = self.coadd.download()
 
         self._make_objmap(info)
         self._copy_psfs(info)
@@ -401,19 +418,26 @@ class Preparator(dict):
         self._write_seg_flist(info['src_info'], fileconf)
         self._write_bkg_flist(info['src_info'], fileconf)
 
-    def remove_nullwt(self):
+    def clean(self):
+        """
+        remove all sources and nullwt files
+        """
+        self.clean_sources()
+        self.clean_nullwt()
+
+    def clean_sources(self):
+        """
+        remove the downloaded source files
+        """
+        self.coadd.clean()
+
+    def clean_nullwt(self):
         """
         remove all the generated nullwt files
         """
-        info = self.coadd.get_info(self['tilename'], self['band'])
-        src_info = info['src_info']
-        self._add_nullwt_paths(src_info)
+        print("removing nullwt images:",self['nullwt_dir'])
+        shutil.rmtree(self['nullwt_dir'])
 
-        for sinfo in src_info:
-            npath = sinfo['nullwt_path']
-            if os.path.exists(npath):
-                print("removing:",npath)
-            files.try_remove(npath)
 
 
     def _make_objmap(self, info):
@@ -522,7 +546,7 @@ class Preparator(dict):
         src_info=info['src_info']
         self._add_nullwt_paths(src_info)
 
-        dir=files.get_nullwt_dir(self['medsconf'], self['tilename'])
+        dir=self['nullwt_dir']
         if not os.path.exists(dir):
             print("making directory:",dir)
             os.makedirs(dir)
@@ -545,6 +569,7 @@ class Preparator(dict):
             sinfo['nullwt_path'] = files.get_nullwt_file(
                 self['medsconf'],
                 self['tilename'],
+                self['band'],
                 sinfo['image_path'],
             )
 
