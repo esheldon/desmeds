@@ -257,7 +257,10 @@ class DESMEDSMaker(dict):
         return None
 
     def _get_path_dtype_len(self, srclist):
-        slen = len(self._get_portable_url(self.cf,'image_url'))
+        slen = max(
+            len(self._get_portable_url(self.cf,'image_url')),
+            len(self._get_portable_url(self.cf,'seg_url')),
+        )
         for s in srclist:
             slen = max(
                 slen,
