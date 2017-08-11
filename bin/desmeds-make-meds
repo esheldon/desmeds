@@ -44,6 +44,12 @@ parser.add_argument(
     action='store_true',
     help=('just remove all the generated nullwt files and exit'),
 )
+parser.add_argument(
+    '--preclean',
+    action='store_true',
+    help=('clean before running, useful in case files got corrupted'),
+)
+
 
 
 
@@ -57,24 +63,30 @@ def main():
         args.band,
     )
 
-    if not args.noprep:
-        prep.go()
 
-    conf=desmeds.files.read_meds_config(args.medsconf)
-    fileconf=desmeds.files.get_desdm_file_config(
-        conf['medsconf'],
-        args.tilename,
-        args.band,
-    )
-    maker = desmeds.DESMEDSMakerDESDM(
-        conf,
-        fileconf,
-        tmpdir=args.tmpdir,
-    )
-    maker.go()
+    try:
 
-    if not args.noclean:
-        prep.clean()
+        if args.preclean:
+            prep.clean()
+
+        if not args.noprep:
+            prep.go()
+
+        conf=desmeds.files.read_meds_config(args.medsconf)
+        fileconf=desmeds.files.get_desdm_file_config(
+            conf['medsconf'],
+            args.tilename,
+            args.band,
+        )
+        maker = desmeds.DESMEDSMakerDESDM(
+            conf,
+            fileconf,
+            tmpdir=args.tmpdir,
+        )
+        maker.go()
+    finally:
+        if not args.noclean:
+            prep.clean()
 
 if __name__ == '__main__':
     main()
