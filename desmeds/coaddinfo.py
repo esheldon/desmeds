@@ -64,6 +64,11 @@ class Coadd(dict):
 
         self['flist_file']=self._write_download_flist(info)
 
+        if 'DESREMOTE_RSYNC_USER' in os.environ:
+            self['userstring'] = os.environ['DESREMOTE_RSYNC_USER']+'@'
+        else:
+            self['userstring'] = ''
+
         cmd=_DOWNLOAD_CMD % self
 
         try:
@@ -586,7 +591,7 @@ _DOWNLOAD_CMD = r"""
         -av \
         --password-file $DES_RSYNC_PASSFILE \
         --files-from=%(flist_file)s \
-        ${DESREMOTE_RSYNC}/ \
+        %(userstring)s${DESREMOTE_RSYNC}/ \
         %(source_dir)s/ 
 """
 
