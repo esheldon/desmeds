@@ -374,7 +374,10 @@ class Preparator(dict):
         from .coaddinfo import Coadd
         from .coaddsrc import CoaddSrc
 
-        conf=files.read_meds_config(medsconf)
+        if isinstance(medsconf,dict):
+            conf=medsconf
+        else:
+            conf=files.read_meds_config(medsconf)
         self.update(conf)
 
         self['tilename']=tilename
