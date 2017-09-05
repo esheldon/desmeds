@@ -135,7 +135,7 @@ class CoaddSrc(Coadd):
         if self['campaign']=='Y3A1_COADD':
             self['finalcut_campaign']='Y3A1_FINALCUT'
         elif self['campaign']=='Y3A2_COADD':
-            self['finalcut_campaign']='Y3A2_FINALCUT'
+            self['finalcut_campaign']='Y3A1_FINALCUT'
         else:
             raise ValueError("determine finalcut campaign "
                              "for '%s'" % self['campaign'])

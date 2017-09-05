@@ -17,7 +17,8 @@ def get_nwgint_config(campaign):
     config used for making null weight images
     """
 
-    assert "y3a1" in campaign.lower()
+    clow = campaign.lower()
+    assert "y3a1" in clow or 'y3a2' in clow
 
     dir=get_desdata()
     path='OPS/config/multiepoch/Y3A1/v4/Y3A1_v4_coadd_nwgint.config'
