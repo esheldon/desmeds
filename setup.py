@@ -15,7 +15,7 @@ scripts=[
 scripts=[os.path.join('bin',s) for s in scripts]
 
 setup(name="desmeds",
-      version="0.9.2.1",
+      version="0.9.2.2",
       description="DES specific MEDS code",
       license = "GPL",
       author="Erin Scott Sheldon",
