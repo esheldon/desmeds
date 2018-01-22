@@ -459,7 +459,6 @@ class Preparator(dict):
             #sources = self.coadd.get_sources()
             #objmap = sources.cache.get_objmap(info)
             objmap = self.coadd.get_objmap(info)
-            print(objmap)
             print("writing objmap:",fname)
             fitsio.write(fname, objmap, extname='OBJECTS',clobber=True)
 
