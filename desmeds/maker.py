@@ -9,6 +9,7 @@ TODO:
     - put a try/except guard around imports not used for the DESDM interface
 """
 from __future__ import print_function
+from functools import reduce
 import os
 from os.path import basename
 import numpy
@@ -228,12 +229,12 @@ class DESMEDSMaker(dict):
         return scale
 
     def _get_ext_len(self):
-        if isinstance(self['coadd_image_ext'],basestring):
+        if not _isnum(self['coadd_image_ext']):
             lens=[]
             for key in self:
                 if '_ext' in key:
                     ext=self[key]
-                    if not isinstance(ext, basestring):
+                    if _isnum(ext):
                         raise ValueError("ext %s not a string, "
                                          "if one ext is a string, all "
                                          "must be" % ext)
@@ -668,4 +669,11 @@ class DESMEDSMaker(dict):
 
         self.update(conf)
 
+def _isnum(val):
+    try:
+        tmp = val + 2
+        ret=True
+    except TypeError:
+        ret=False
 
+    return ret

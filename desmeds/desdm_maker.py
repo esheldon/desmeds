@@ -168,20 +168,22 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         srclist=self._load_nwgint_info()
         nepoch = len(srclist)
 
-        # now add in the other file types
-        bkg_info=self._read_generic_flist('bkg_flist')
-        seg_info=self._read_generic_flist('seg_flist')
+        if nepoch > 0:
 
-        if len(bkg_info) != nepoch:
-            raise ValueError("bkg list has %d elements, nwgint "
-                             "list has %d elements" % (len(bkg_info),nepoch))
-        if len(seg_info) != nepoch:
-            raise ValueError("seg list has %d elements, nwgint "
-                             "list has %d elements" % (len(seg_info),nepoch))
+            # now add in the other file types
+            bkg_info=self._read_generic_flist('bkg_flist')
+            seg_info=self._read_generic_flist('seg_flist')
 
-        for i,src in enumerate(srclist):
-            src['red_bkg'] = bkg_info[i]
-            src['red_seg'] = seg_info[i]
+            if len(bkg_info) != nepoch:
+                raise ValueError("bkg list has %d elements, nwgint "
+                                 "list has %d elements" % (len(bkg_info),nepoch))
+            if len(seg_info) != nepoch:
+                raise ValueError("seg list has %d elements, nwgint "
+                                 "list has %d elements" % (len(seg_info),nepoch))
+
+            for i,src in enumerate(srclist):
+                src['red_bkg'] = bkg_info[i]
+                src['red_seg'] = seg_info[i]
 
         return srclist
 
@@ -227,6 +229,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         Load all meta information needed from the
         ngmwint files
         """
+
+        if 'nwgint_flist' not in self.file_dict:
+            return []
+
         fname=self.file_dict['nwgint_flist']
         print("reading nwgint list and loading headers:",fname)
 
