@@ -1,0 +1,183 @@
+#!/usr/bin/env python
+"""
+will take the coadd file to be the DESDM psfex file from
+the /psfs subdirectory
+"""
+from __future__ import print_function
+import os
+import numpy
+import fitsio
+
+from argparse import ArgumentParser
+
+parser=ArgumentParser()
+
+parser.add_argument('piff_run',help='e.g. y3a1-v23')
+parser.add_argument('meds_version',help='e.g. y3v02')
+parser.add_argument('tilename',help='e.g. DES0547-3206')
+parser.add_argument('band',help='e.g. i')
+
+class PSFMapMaker(dict):
+    def __init__(self, piff_run, meds_version, tilename, band):
+        self['piff_run'] = piff_run
+        self['meds_version'] = meds_version
+        self['tilename'] = tilename
+        self['band'] = band
+
+        self._check()
+
+    def go(self):
+        self._load_psfex_info()
+        self._load_exp_summaries()
+        self._make_map()
+        self._write_map()
+
+    def _load_psfex_info(self):
+        """
+        load the original psfex psf map file
+        """
+
+        fname=self._get_psfex_map_file()
+
+        exp_dict={}
+        plist=[]
+        print("reading psf info from '%s'" % fname)
+        with open(fname) as fobj:
+            for line in fobj:
+                ls = line.split()
+
+                if ls[0]=='-9999':
+                    key = 'coadd'
+                else:
+                    key = 'D%s-%s' % (ls[0], ls[1])
+
+                expnum = int(ls[0])
+                entry = dict(
+                    key=key,
+
+                    expstr=ls[0],
+                    ccdstr=ls[1],
+                    psfex_path=ls[2],
+
+                    expnum=expnum,
+                    ccdnum=int(ls[1]),
+                )
+
+                exp_dict[expnum] = dict(
+                    key=key,
+                    expnum=expnum,
+                )
+
+                plist.append(entry)
+
+        self.plist=plist
+        self.exp_dict=exp_dict
+
+    def _get_psfex_map_file(self):
+        meds_dir='$MEDS_DIR/%(meds_version)s/%(tilename)s'
+        fname = '%(tilename)s_%(band)s_psfmap-%(meds_version)s.dat'
+        fname=os.path.join(meds_dir,fname)
+        fname = fname % self
+        fname=os.path.expandvars(fname)
+        return fname
+
+    def _load_exp_summaries(self):
+        for expnum, entry in self.exp_dict.iteritems():
+            if entry['key'] != 'coadd':
+                fname = self._get_exp_summary_file(expnum)
+                print(fname)
+                data = fitsio.read(fname, ext='info')
+                entry['data'] = data
+
+    def _get_exp_summary_file(self, expnum):
+        base_dir='/astro/u/mjarvis/work/y3_piff/%(piff_run)s' % self
+
+        # not zero padded
+        sub_dir = '%d' % expnum
+        fname = 'exp_psf_cat_%d.fits' % expnum
+
+        fname = os.path.join(
+            base_dir,
+            sub_dir,
+            fname,
+        )
+        return fname
+    
+    def _make_map(self):
+        """
+        make new map entries for piff, except for coadd
+        """
+
+        for p in self.plist:
+            if p['key']=='coadd':
+                path=p['psfex_path']
+            else:
+                path=self._get_piff_path(p)
+
+            p['piff_path'] = path
+
+
+    def _get_piff_path(self, p):
+        key = p['key']
+
+        data = self.exp_dict[ p['expnum'] ]['data']
+        w,=numpy.where(data['key'] == key)
+        if w.size == 0:
+            raise ValueError("not found: '%s'" % key)
+        assert w.size==1
+
+        path = data['piff_file'][w[0]]
+        path = self._replace_piff_dir(path)
+        return path
+
+    def _replace_piff_dir(self, path):
+        """
+        replace actual base path with env variable specifier $PIFF_DATA_DIR
+        """
+        ename = 'PIFF_DATA_DIR'
+        edir = os.environ[ename]
+        return path.replace(edir, '$'+ename)
+        
+
+    def _write_map(self):
+        outfile=self._get_piff_psfmap_file()
+        print("writing to file:",outfile)
+        dir=os.path.dirname(outfile)
+        if not os.path.exists(dir):
+            print("making dir:",dir)
+            try:
+                os.makedirs(dir)
+            except:
+                pass
+
+        with open(outfile,'w') as fobj:
+            for p in self.plist:
+                line = '%s %s %s' % (p['expstr'], p['ccdstr'], p['piff_path'])
+                print(line)
+                print(line, file=fobj)
+
+    def _get_piff_psfmap_file(self):
+        """
+        we keep these separate from original MEDS tile directories
+        """
+        dir='$PIFF_MAP_DIR/%(meds_version)s/%(piff_run)s/%(tilename)s'
+        fname = '%(tilename)s_%(band)s_piff_psfmap-%(meds_version)s.dat'
+        fname=os.path.join(dir,fname)
+        fname = fname % self
+        fname=os.path.expandvars(fname)
+        return fname
+
+    def _check(self):
+        assert 'PIFF_MAP_DIR' in os.environ
+        assert 'PIFF_DATA_DIR' in os.environ
+        assert 'MEDS_DIR' in os.environ
+
+if __name__=="__main__":
+    args = parser.parse_args()
+    maker = PSFMapMaker(
+        args.piff_run,
+        args.meds_version,
+        args.tilename,
+        args.band,
+    )
+    maker.go()
