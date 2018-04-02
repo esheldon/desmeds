@@ -150,6 +150,7 @@ class PSFMapMaker(dict):
                 line = '%s %s %s' % (p['expstr'], p['ccdstr'], p['piff_path'])
                 print(line)
                 print(line, file=fobj)
+        print("wrote file:",outfile)
 
     def _check(self):
         assert 'PIFF_MAP_DIR' in os.environ
