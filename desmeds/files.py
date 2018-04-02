@@ -365,6 +365,73 @@ def get_psfmap_file(medsconf, tilename, band):
         ext,
     )
 
+def get_piff_map_file(medsconf, piff_run, tilename, band):
+    """
+    psf map file for piff
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v01'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+    
+    dir=get_piff_map_dir(medsconf, piff_run, tilename, band)
+
+    fname = '%(tilename)s_%(band)s_psfmap-%(medsconf)s-%(piff_run)s.dat'
+    fname = fname % dict(
+        medsconf=medsconf,
+        piff_run=piff_run,
+        tilename=tilename,
+        band=band,
+    )
+    fname = os.path.join(dir, fname)
+    return fname
+
+def get_piff_map_dir(medsconf, piff_run, tilename, band):
+    """
+    psf map file for piff
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v01'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+    base_dir=os.environ['PIFF_MAP_DIR']
+    dir='%(base_dir)s/%(medsconf)s/%(piff_run)s/%(tilename)s'
+    dir = dir % dict(
+        base_dir=base_dir,
+        medsconf=medsconf,
+        piff_run=piff_run,
+        tilename=tilename,
+    )
+    return dir
+
+
+def get_piff_exp_summary_file(piff_run, expnum):
+    """
+    expnum not zero padded
+    """
+    base_dir=os.environ['PIFF_DATA_DIR']
+
+    fname = 'exp_psf_cat_%d.fits' % expnum
+
+    fname = os.path.join(
+        base_dir,
+        piff_run,
+        '%d' % expnum,
+        fname,
+    )
+    return fname
+
+
 
 def get_nullwt_file(medsconf, tilename, band, finalcut_file):
     """
