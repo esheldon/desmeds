@@ -89,8 +89,14 @@ class PSFMapMaker(dict):
                     expnum,
                 )
                 print(fname)
-                data = fitsio.read(fname, ext='info')
-                entry['data'] = data
+                if not os.path.exists(fname):
+                    print("missing file:",fname)
+                    entry['exists'] = False
+                    entry['data'] = None
+                else:
+                    entry['exists'] = True
+                    data = fitsio.read(fname, ext='info')
+                    entry['data'] = data
 
     
     def _make_map(self):
@@ -110,15 +116,19 @@ class PSFMapMaker(dict):
     def _get_piff_path_from_summary(self, p):
         key = p['key']
 
-        data = self.exp_dict[ p['expnum'] ]['data']
-        w,=numpy.where(data['key'] == key)
-        if w.size == 0:
-            raise ValueError("not found: '%s'" % key)
-        assert w.size==1
+        entry = self.exp_dict[ p['expnum'] ]
+        if not entry['exists']:
+            return "missing"
+        else:
+            data = entry['data']
+            w,=numpy.where(data['key'] == key)
+            if w.size == 0:
+                raise ValueError("not found: '%s'" % key)
+            assert w.size==1
 
-        path = data['piff_file'][w[0]]
-        path = self._replace_piff_dir(path)
-        return path
+            path = data['piff_file'][w[0]]
+            path = self._replace_piff_dir(path)
+            return path
 
     def _replace_piff_dir(self, path):
         """
