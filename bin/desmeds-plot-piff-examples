@@ -1,0 +1,116 @@
+#!/usr/bin/env python
+"""
+Plot an example from each of the PIFF files associated with
+this tile.
+"""
+from __future__ import print_function
+import os
+import images
+import piff
+import desmeds
+import numpy
+
+from argparse import ArgumentParser
+
+parser=ArgumentParser()
+
+parser.add_argument('medsconf',help='e.g. y3v02')
+parser.add_argument('piff_run',help='e.g. y3a1-v23')
+parser.add_argument('tilename',help='e.g. DES0547-3206')
+parser.add_argument('band',help='e.g. i')
+
+
+class PIFFPlotter(dict):
+    def __init__(self, piff_run, medsconf, tilename, band):
+        self['piff_run'] = piff_run
+        self['medsconf'] = medsconf
+        self['tilename'] = tilename
+        self['band'] = band
+
+        self._check()
+
+    def go(self):
+        map_file=self._get_map_file()
+
+        with open(map_file) as fobj:
+            lines = fobj.readlines()
+            nl = len(lines)
+            for i,line in enumerate(lines):
+                if 'piff' not in line:
+                    continue
+
+                
+                line=line.strip()
+                exp, ccd, path =line.split()
+                if path=='missing':
+                    continue
+
+                print("%d/%d %s" % (i+1,nl,line))
+
+                try:
+                    pobj=piff.read(path)
+                except IOError as err:
+                    print(err)
+                    continue
+
+                self._write_image(exp, ccd, pobj)
+
+    def _write_image(self, exp, ccd, pobj):
+        y,x = numpy.random.uniform(low=100.0, high=500.0, size=2)
+        im = pobj.draw(x=x, y=y).array
+
+        pngfile=self._get_png_file(exp, ccd, y, x)
+        try_makedirs(pngfile)
+
+        print(pngfile)
+        plt=images.multiview(im, show=False)
+        plt.write_img(800,800,pngfile)
+
+    def _get_map_file(self):
+        return desmeds.files.get_piff_map_file(
+            self['medsconf'],
+            self['piff_run'],
+            self['tilename'],
+            self['band'],
+        )
+
+    def _get_png_dir(self, exp):
+        return os.path.join(
+            os.environ['PIFF_MAP_DIR'],
+            'images',
+            self['medsconf'],
+            self['piff_run'],
+            exp,
+
+        )
+    def _get_png_file(self, exp, ccd, y, x):
+        d=self._get_png_dir(exp)
+        fname='%s-%s-%s-piff-%.1f-%.1f.png'
+        fname = fname % (exp, ccd, self['band'], y, x)
+        return os.path.join(
+            d,
+            fname,
+        )
+
+    def _check(self):
+        assert 'PIFF_MAP_DIR' in os.environ
+        assert 'PIFF_DATA_DIR' in os.environ
+        assert 'MEDS_DIR' in os.environ
+
+def try_makedirs(fname):
+    dir=os.path.dirname(fname)
+    if not os.path.exists(dir):
+        try:
+            os.makedirs(dir)
+        except:
+            pass
+
+if __name__=="__main__":
+    args = parser.parse_args()
+    maker = PIFFPlotter(
+        args.piff_run,
+        args.medsconf,
+        args.tilename,
+        args.band,
+    )
+    maker.go()
