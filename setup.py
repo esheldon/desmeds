@@ -11,6 +11,7 @@ scripts=[
     'desmeds-rsync-meds-srcs',
     'desmeds-prep-tile',
     'desmeds-make-piff-map',
+    'desmeds-plot-piff-examples',
 ]
 
 scripts=[os.path.join('bin',s) for s in scripts]
