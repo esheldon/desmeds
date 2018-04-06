@@ -57,14 +57,18 @@ class PIFFPlotter(dict):
 
     def _write_image(self, exp, ccd, pobj):
         y,x = numpy.random.uniform(low=100.0, high=500.0, size=2)
-        im = pobj.draw(x=x, y=y).array
+        im = pobj.draw(x=x, y=y, stamp_size=17).array
+
+        im -= im.min()
+        im *= 1.0/im.max()
 
         pngfile=self._get_png_file(exp, ccd, y, x)
         try_makedirs(pngfile)
 
         print(pngfile)
-        plt=images.multiview(im, show=False)
-        plt.write_img(800,800,pngfile)
+        plt=images.multiview(im, nonlinear=0.8, show=False)
+        plt.title='%s-%s %s' % (exp, ccd, self['band'])
+        plt.write_img(800,400,pngfile)
 
     def _get_map_file(self):
         return desmeds.files.get_piff_map_file(
