@@ -22,6 +22,9 @@ parser.add_argument('output_file',
 
 parser.add_argument('--obj-range',
                     help='range of objects to process, for testing')
+parser.add_argument('--tmpdir',default=None,
+                    help='temporary directory for files')
+
 parser.add_argument('--make-plots',action='store_true',
                     help='make plots of each epoch and the coadd')
 
@@ -72,7 +75,7 @@ def main():
         make_plots=args.make_plots,
     )
 
-    maker=meds.DESMEDSCoaddMaker(config, coadder)
+    maker=desmeds.DESMEDSCoaddMaker(config, coadder,tmpdir=args.tmpdir)
     maker.write(args.output_file, obj_range=obj_range)
 
 

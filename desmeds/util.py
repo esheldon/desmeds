@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
+import subprocess
 
 DEFVAL = -9999
 IMAGE_INFO_TYPES = ['image','weight','seg','bmask','bkg']

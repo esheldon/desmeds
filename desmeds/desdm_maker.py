@@ -524,9 +524,9 @@ class Preparator(dict):
 
         do_fpack = self.get('fpack',True)
         if do_fpack:
-            ext='.fits.fz'
+            ext='fits.fz'
         else:
-            ext='.fits'
+            ext='fits'
 
         meds_file=files.get_meds_file(
             self['medsconf'],
