@@ -14,6 +14,7 @@ scripts=[
     'desmeds-plot-piff-examples',
     'desmeds-make-piff-blacklist',
     'desmeds-plot-blacklist',
+    'desmeds-coadd',
 ]
 
 scripts=[os.path.join('bin',s) for s in scripts]
