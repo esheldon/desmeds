@@ -11,15 +11,15 @@ import fitsio
 import esutil as eu
 
 import meds
-from meds.util import \
-    make_wcs_positions, \
-    get_meds_input_struct, \
-    get_image_info_struct
+from meds.util import (
+    make_wcs_positions,
+    get_meds_input_struct,
+    get_image_info_struct,
+)
 
 from . import blacklists
 from . import util
 
-from . import util
 from . import files
 from .defaults import default_config
 
@@ -343,26 +343,30 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         # this will do nothing if tmpdir is None; sf.path will
         # in fact equal fname and no move is performed
 
-        with StagedOutFile(fname,tmpdir=self.tmpdir) as sf:
-            if sf.path[-8:] == '.fits.fz':
-                local_fitsname = sf.path.replace('.fits.fz','.fits')
-
-                with TempFile(local_fitsname) as tfile:
-                    maker.write(tfile.path)
-
-                    # this will fpack to the proper path, which
-                    # will then be staged out if tmpdir is not None
-                    # if the name is wrong, the staging will fail and
-                    # an exception raised
-                    self._fpack_file(tfile.path)
-
+        if self.tmpdir  is not None:
+            with StagedOutFile(fname,tmpdir=self.tmpdir) as sf:
+                if sf.path[-8:] == '.fits.fz':
+                    self._write_and_fpack(maker, sf.path)
+                else:
+                    maker.write(sf.path)
+        else:
+            if fname[-8:] == '.fits.fz':
+                self._write_and_fpack(maker, fname)
             else:
-                maker.write(sf.path)
+                maker.write(fname)
 
-    def _fpack_file(self, fname):
-        cmd='fpack %s' % fname
-        print("fpacking with command: '%s'" % cmd)
-        subprocess.check_call(cmd,shell=True)
+    def _write_and_fpack(self, maker, fname):
+        local_fitsname = sf.path.replace('.fits.fz','.fits')
+
+        with TempFile(local_fitsname) as tfile:
+            maker.write(tfile.path)
+
+            # this will fpack to the proper path, which
+            # will then be staged out if tmpdir is not None
+            # if the name is wrong, the staging will fail and
+            # an exception raised
+            util.fpack_file(tfile.path)
+
 
 class Preparator(dict):
     """
@@ -518,10 +522,17 @@ class Preparator(dict):
         )
 
 
+        do_fpack = self.get('fpack',True)
+        if do_fpack:
+            ext='.fits.fz'
+        else:
+            ext='.fits'
+
         meds_file=files.get_meds_file(
             self['medsconf'],
             self['tilename'],
             self['band'],
+            ext=ext,
         )
         output={
             'band':self['band'],

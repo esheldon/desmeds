@@ -2,12 +2,56 @@ from __future__ import print_function
 import numpy as np
 import os
 import meds
+from . import util
+
+from .files import (
+    TempFile,
+    StagedOutFile,
+)
+
+class DESMEDSCoaddMaker(meds.MEDSCoaddMaker):
+    def write(self, fname, obj_range=None):
+        """
+        write the data using the MEDSMaker
+        """
+
+        print("writing MEDS file:",fname)
+
+
+        if self.tmpdir is not None:
+            raise ValueError("tmpdir must not be None")
+
+        with StagedOutFile(fname,tmpdir=self.tmpdir) as sf:
+            if sf.path[-8:] == '.fits.fz':
+                self._write_and_fpack(sf.path)
+            else:
+                self._dowrite(sf.path, obj_range=obj_range)
+
+    def _write_and_fpack(self, maker, fname, obj_range=None):
+        local_fitsname = sf.path.replace('.fits.fz','.fits')
+
+        with TempFile(local_fitsname) as tfile:
+            self._dowrite(tfile.path, obj_range=obj_range)
+
+            # this will fpack to the proper path, which
+            # will then be staged out if tmpdir is not None
+            # if the name is wrong, the staging will fail and
+            # an exception raised
+            util.fpack_file(tfile.path)
+
+    def _dowrite(self, fname, obj_range=None):
+        super(DESMEDSCoaddMaker,self).write(
+            fname,
+            obj_range=obj_range,
+        )
+
 
 
 class DESMEDSCoadder(meds.MEDSCoadder):
     """
     implement DES specific stuff for postage stamp coadding
     """
+
     def _get_psf_obs(self, obs, file_id, meta, row, col):
         """
         psfex specific code here

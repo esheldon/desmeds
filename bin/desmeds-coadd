@@ -72,7 +72,7 @@ def main():
         make_plots=args.make_plots,
     )
 
-    maker=meds.MEDSCoaddMaker(config, coadder)
+    maker=meds.DESMEDSCoaddMaker(config, coadder)
     maker.write(args.output_file, obj_range=obj_range)
 
 

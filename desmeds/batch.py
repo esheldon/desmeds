@@ -207,4 +207,12 @@ desmeds-make-meds \
     %(medsconf)s %(tilename)s %(band)s
 """
 
+_coadd_script_template=r"""#!/bin/bash
+
+mkdir -p $TMPDIR
+
+desmeds-coadd-meds \
+    --tmpdir=$TMPDIR \
+    %(medsconf)s %(tilename)s %(band)s
+"""
 

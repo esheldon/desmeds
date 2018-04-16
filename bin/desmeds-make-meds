@@ -63,7 +63,6 @@ def main():
         args.band,
     )
 
-
     try:
 
         if args.preclean:
