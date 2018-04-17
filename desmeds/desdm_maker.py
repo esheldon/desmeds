@@ -86,18 +86,43 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         # not relevant for this version
         self.DESDATA = 'rootless'
 
-    def go(self):
-        """
-        make the MEDS file
-        """
-
         self._load_coadd_info()
         self._read_coadd_cat()
         self._build_image_data()
         self._build_meta_data()
         self._build_object_data()
 
-        self._write_meds_file() # does second pass to write data
+    def go(self, fname=None):
+        """
+        write the data using the MEDSMaker
+        """
+
+        maker=meds.MEDSMaker(
+            self.obj_data,
+            self.image_info,
+            config=self,
+            meta_data=self.meta_data,
+        )
+
+        if fname is None:
+            fname=self.file_dict['meds_url']
+
+        print("writing MEDS file:",fname)
+
+        # this will do nothing if tmpdir is None; sf.path will
+        # in fact equal fname and no move is performed
+
+        if self.tmpdir  is not None:
+            with StagedOutFile(fname,tmpdir=self.tmpdir) as sf:
+                if sf.path[-8:] == '.fits.fz':
+                    self._write_and_fpack(maker, sf.path)
+                else:
+                    maker.write(sf.path)
+        else:
+            if fname[-8:] == '.fits.fz':
+                self._write_and_fpack(maker, fname)
+            else:
+                maker.write(fname)
 
     def _get_image_id_len(self, srclist):
         """
@@ -325,35 +350,6 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         with open(fileconf) as fobj:
             self.file_dict=yaml.load( fobj )
 
-    def _write_meds_file(self):
-        """
-        write the data using the MEDSMaker
-        """
-
-        maker=meds.MEDSMaker(
-            self.obj_data,
-            self.image_info,
-            config=self,
-            meta_data=self.meta_data,
-        )
-
-        fname=self.file_dict['meds_url']
-        print("writing MEDS file:",fname)
-
-        # this will do nothing if tmpdir is None; sf.path will
-        # in fact equal fname and no move is performed
-
-        if self.tmpdir  is not None:
-            with StagedOutFile(fname,tmpdir=self.tmpdir) as sf:
-                if sf.path[-8:] == '.fits.fz':
-                    self._write_and_fpack(maker, sf.path)
-                else:
-                    maker.write(sf.path)
-        else:
-            if fname[-8:] == '.fits.fz':
-                self._write_and_fpack(maker, fname)
-            else:
-                maker.write(fname)
 
     def _write_and_fpack(self, maker, fname):
         local_fitsname = sf.path.replace('.fits.fz','.fits')

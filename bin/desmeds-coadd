@@ -12,7 +12,7 @@ import meds
 from argparse import ArgumentParser
 parser=ArgumentParser()
 
-parser.add_argument('config_file',help='configuration file')
+parser.add_argument('medsconf',help='configuration file or identifier')
 parser.add_argument('meds_file',help='MEDS file for coadding')
 parser.add_argument('psfmap_file',help='psf map file for given MEDS file')
 parser.add_argument('seed',type=int,
@@ -57,8 +57,9 @@ def load_psfmap(fname):
 def main():
     args=parser.parse_args()
 
-    with open(args.config_file) as fobj:
-        config=yaml.load(fobj)
+    config=desmeds.files.read_meds_config(args.medsconf)
+    #with open(args.config_file) as fobj:
+    #    config=yaml.load(fobj)
 
     obj_range = args.obj_range
     if obj_range is not None:

@@ -31,6 +31,12 @@ parser.add_argument(
     default=None,
     help=('use the specified temporary directory for writing'),
 )
+parser.add_argument(
+    '--meds-file',
+    default=None,
+    help=('Write the specified file rather than the default'),
+)
+
 
 
 parser.add_argument(
@@ -82,7 +88,13 @@ def main():
             fileconf,
             tmpdir=args.tmpdir,
         )
-        maker.go()
+
+        if args.meds_file is not None:
+            fname=args.meds_file
+        else:
+            fname=None
+        maker.go(fname=fname)
+
     finally:
         if not args.noclean:
             prep.clean()

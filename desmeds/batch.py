@@ -49,6 +49,8 @@ class Generator(dict):
             self['band'],
         )
 
+        self.config=files.read_meds_config(medsconf)
+
 
     def write(self):
         """
@@ -68,13 +70,38 @@ class Generator(dict):
         write the shell script
         """
 
+        if 'coadd' in self.config:
+            self._write_coadd_script()
+        else:
+            self._write_maker_script()
+
+    def _write_coadd_script(self):
+        make_dirs(self['script_file'])
+
+        mf=self['meds_file']
+        mf_nocoadd = mf.replace('.fits.fz','.fits')
+        mf_nocoadd = mf_nocoadd.replace('.fits','-nocoadd.fits')
+        self['meds_file_nocoadd'] = mf_nocoadd
+        self['psfmap_file'] = files.get_psfmap_file(
+            self['medsconf'], self['tilename'], self['band'],
+        )
+
+        if 'seed' not in self:
+            # when making for a set, we do the seeds from
+            # the global seed. Othewise generate it
+            self['seed']=make_seed(self)
+
+        with open(self['script_file'],'w') as fobj:
+            text=_coadd_script_template % self
+            fobj.write(text)
+
+    def _write_maker_script(self):
         make_dirs(self['script_file'])
 
         #print("    writing script:",self['script_file'])
         with open(self['script_file'],'w') as fobj:
             text=_script_template % self
             fobj.write(text)
-
 
     def _write_lsf(self):
         """
@@ -210,9 +237,61 @@ desmeds-make-meds \
 _coadd_script_template=r"""#!/bin/bash
 
 mkdir -p $TMPDIR
+nocoadd_file=%(meds_file_nocoadd)s
 
-desmeds-coadd-meds \
-    --tmpdir=$TMPDIR \
-    %(medsconf)s %(tilename)s %(band)s
+
+(
+    # we need to go into desdm mode in
+    # a subshell.  Thes settings will not
+    # persist
+
+    echo "temporary loading DESDM framework"
+    module unload anaconda
+    source $HOME/eups/eups/desdm_eups_setup.sh
+    setup pixcorrect 0.5.3+5
+    setup MEPipelineAppIntg
+    setup easyaccess
+    setup pyyaml
+    setup -r $HOME/exports/desdm_extra
+
+    desmeds-make-meds \
+        %(medsconf)s \
+        %(tilename)s \
+        %(band)s \
+        --tmpdir=$TMPDIR \
+        --meds-file=${nocoadd_file}
+
+)
+
+desmeds-coadd \
+        --tmpdir=$TMPDIR \
+        %(medsconf)s  \
+        ${nocoadd_file} \
+        %(psfmap_file)s \
+        %(seed)d \
+        %(meds_file)s
+
+echo "cleaning up temporary MEDS file"
+rm -v ${nocoadd_file}
+
+dir=$(dirname ${nocoadd_file})
+ldir="${dir}/lists"
+pdir="${dir}/psfs"
+
+echo "cleaning temporary psf and list dirs"
+rm -rv "${ldir}"
+rm -rv "${pdir}"
 """
+
+def make_seed(conf):
+    """
+    convert the input config file name to an integer for use
+    as a seed
+    """
+    import hashlib
+
+    s = '%s%s%s' % (conf['medsconf'], conf['tilename'], conf['band'])
+    h = hashlib.sha256(s.encode('utf-8')).hexdigest()
+    seed = int(h, base=16) % 2**30 
+    return seed
 
