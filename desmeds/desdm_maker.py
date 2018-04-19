@@ -248,14 +248,69 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         return path, magzp
 
-
     def _load_source_image_info(self):
         """
         Load all meta information needed from the
         ngmwint files
         """
 
+        # read the full coadd info that we dumped to file
+        fname=files.get_coaddinfo_file(
+            self.medsconf['medsconf'],
+            self.file_dict['tilename'],
+            self.file_dict['band'],
+        )
+        print("reading full coaddinfo:",fname)
+        with open(fname) as fobj:
+            ci = yaml.load(fobj)
+
         if self['source_type'] == 'nullwt':
+            # refined astrometry already present
+            entry='nullwt_path'
+            self['use_astro_refine']=False
+        else:
+            entry='image_path'
+
+        red_info=[]
+
+        for s in ci['src_info']:
+
+            path=s[entry]
+
+            sid = self._get_filename_as_id(path)
+
+            # now mock up the structure of the Coadd.srclist
+
+            if self['use_astro_refine']:
+                img_hdr = fitsio.read_header(path, ext=self['se_image_ext'])
+                wcs_hdr = fitsio.read_scamp_head(s['head_path'])
+                wcs_hdr = util.add_naxis_to_fitsio_header(wcs_hdr,img_hdr)
+            else:
+                wcs_hdr = fitsio.read_header(path, ext=self['se_image_ext'])
+
+            wcs_hdr = util.fitsio_header_to_dict(wcs_hdr)
+            s={
+                'id':sid,
+                'flags':0,  # assume no problems!
+                'red_image':path,
+                'magzp':s['magzp'],
+                'wcs_header':wcs_hdr,
+            }
+
+            red_info.append(s)
+
+        return red_info
+
+
+
+    def _load_source_image_info_old(self):
+        """
+        Load all meta information needed from the
+        ngmwint files
+        """
+
+        if self['source_type'] == 'nullwt':
+            # refined astrometry already present
             entry='nwgint_flist'
         else:
             entry='finalcut_flist'
@@ -278,8 +333,14 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
                 # now mock up the structure of the Coadd.srclist
 
-                wcs_hdr = fitsio.read_header(path, ext=self['se_image_ext'])
-                wcs_header = util.fitsio_header_to_dict(wcs_hdr)
+                if self['use_astro_refine']:
+                    print("using astro refine")
+                    img_hdr = fitsio.read_header(path, ext=self['se_image_ext'])
+                    wcs_hdr = fitsio.read_scamp_head(s['head_path'])
+                    wcs_hdr = util.add_naxis_to_fitsio_header(wcs_hdr,img_hdr)
+                else:
+                    wcs_hdr = fitsio.read_header(path, ext=self['se_image_ext'])
+                    wcs_header = util.fitsio_header_to_dict(wcs_hdr)
 
                 s={
                     'id':sid,
@@ -427,18 +488,20 @@ class Preparator(dict):
         self._make_objmap(info)
         self._copy_psfs(info)
 
-        if self['source_type'] != 'nullwt':
+        if self['source_type'] == 'nullwt':
             self._make_nullwt(info)
 
         fileconf=self._write_file_config(info)
 
         self._write_finalcut_flist(info['src_info'], fileconf)
 
-        if self['source_type'] != 'nullwt':
+        if self['source_type'] == 'nullwt':
             self._write_nullwt_flist(info['src_info'], fileconf)
 
         self._write_seg_flist(info['src_info'], fileconf)
         self._write_bkg_flist(info['src_info'], fileconf)
+
+        self._write_coaddinfo(info)
 
     def clean(self):
         """
@@ -488,7 +551,6 @@ class Preparator(dict):
             for sinfo in src_info:
                 fobj.write("%s %.16g\n" % (sinfo['image_path'], sinfo['magzp'] ))
 
-
     def _write_nullwt_flist(self, src_info, fileconf):
         fname=fileconf['nwgint_flist']
         print("writing:",fname)
@@ -510,6 +572,17 @@ class Preparator(dict):
             for sinfo in src_info:
                 fobj.write("%s\n" % sinfo['bkg_path'])
 
+    def _write_coaddinfo(self, info):
+        fname=files.get_coaddinfo_file(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+        print("writing full coaddinfo:",fname)
+        with open(fname,'w') as fobj:
+            yaml.dump(info, fobj)
+
+
     def _write_file_config(self, info):
         fname=files.get_desdm_file_config(
             self['medsconf'],
@@ -522,6 +595,7 @@ class Preparator(dict):
             self['tilename'],
             self['band'],
         )
+
         seg_flist=files.get_desdm_seg_flist(
             self['medsconf'],
             self['tilename'],
@@ -538,6 +612,11 @@ class Preparator(dict):
             self['band'],
         )
 
+        coaddinfo=files.get_coaddinfo_file(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
 
         do_fpack = self.get('fpack',True)
         if do_fpack:
@@ -560,13 +639,14 @@ class Preparator(dict):
             'coadd_magzp':info['magzp'],
             'coadd_object_map':objmap,
 
+            'coaddinfo':coaddinfo,
             'finalcut_flist':finalcut_flist,
             'seg_flist':seg_flist,
             'bkg_flist':bkg_flist,
 
             'meds_url':meds_file,
         }
-        if self['source_type'] != 'nullwt':
+        if self['source_type'] == 'nullwt':
             output['nwgint_flist'] = \
                 nullwt_flist=files.get_desdm_nullwt_flist(
                     self['medsconf'],
