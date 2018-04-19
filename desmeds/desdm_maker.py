@@ -190,7 +190,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         get all the necessary information for each source image
         """
         # this is a list of dicts
-        srclist=self._load_nwgint_info()
+        srclist=self._load_source_image_info()
         nepoch = len(srclist)
 
         if nepoch > 0:
@@ -200,10 +200,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             seg_info=self._read_generic_flist('seg_flist')
 
             if len(bkg_info) != nepoch:
-                raise ValueError("bkg list has %d elements, nwgint "
+                raise ValueError("bkg list has %d elements, source image "
                                  "list has %d elements" % (len(bkg_info),nepoch))
             if len(seg_info) != nepoch:
-                raise ValueError("seg list has %d elements, nwgint "
+                raise ValueError("seg list has %d elements, source image "
                                  "list has %d elements" % (len(seg_info),nepoch))
 
             for i,src in enumerate(srclist):
@@ -229,9 +229,9 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                 flist.append(line)
         return flist
 
-    def _extract_nwgint_line(self, line):
+    def _extract_source_image_line(self, line):
         """
-        the nwgint (red image) lines are 
+        the source image lines are 
             path magzp
         """
         line=line.strip()
@@ -241,7 +241,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         ls=line.split()
         if len(ls) != 2:
             raise ValueError("got %d elements for line in "
-                             "nwgint list: '%s'" % line)
+                             "source image list: '%s'" % line)
 
         path=ls[0]
         magzp=float(ls[1])
@@ -249,23 +249,28 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         return path, magzp
 
 
-    def _load_nwgint_info(self):
+    def _load_source_image_info(self):
         """
         Load all meta information needed from the
         ngmwint files
         """
 
-        if 'nwgint_flist' not in self.file_dict:
+        if self['source_type'] == 'nullwt':
+            entry='nwgint_flist'
+        else:
+            entry='finalcut_flist'
+
+        if entry not in self.file_dict:
             return []
 
-        fname=self.file_dict['nwgint_flist']
-        print("reading nwgint list and loading headers:",fname)
+        fname=self.file_dict[entry]
+        print("reading source image list and loading headers:",fname)
 
         red_info=[]
         with open(fname) as fobj:
             for line in fobj:
 
-                path, magzp = self._extract_nwgint_line(line)
+                path, magzp = self._extract_source_image_line(line)
                 if path==None:
                     continue
 
@@ -339,8 +344,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             with open(medsconf) as fobj:
                 conf=yaml.load( fobj )
 
-        util.check_for_required_config(conf, ['medsconf'])
+        util.check_for_required_config(conf, ['medsconf','source_type'])
         self.update(conf)
+
+        assert self['source_type'] in ['finalcut','nullwt']
 
 
     def _load_file_config(self, fileconf):
@@ -419,11 +426,17 @@ class Preparator(dict):
 
         self._make_objmap(info)
         self._copy_psfs(info)
-        self._make_nullwt(info)
+
+        if self['source_type'] != 'nullwt':
+            self._make_nullwt(info)
 
         fileconf=self._write_file_config(info)
 
-        self._write_nullwt_flist(info['src_info'], fileconf)
+        self._write_finalcut_flist(info['src_info'], fileconf)
+
+        if self['source_type'] != 'nullwt':
+            self._write_nullwt_flist(info['src_info'], fileconf)
+
         self._write_seg_flist(info['src_info'], fileconf)
         self._write_bkg_flist(info['src_info'], fileconf)
 
@@ -468,6 +481,14 @@ class Preparator(dict):
             print("writing objmap:",fname)
             fitsio.write(fname, objmap, extname='OBJECTS',clobber=True)
 
+    def _write_finalcut_flist(self, src_info, fileconf):
+        fname=fileconf['finalcut_flist']
+        print("writing:",fname)
+        with open(fname, 'w') as fobj:
+            for sinfo in src_info:
+                fobj.write("%s %.16g\n" % (sinfo['image_path'], sinfo['magzp'] ))
+
+
     def _write_nullwt_flist(self, src_info, fileconf):
         fname=fileconf['nwgint_flist']
         print("writing:",fname)
@@ -496,7 +517,7 @@ class Preparator(dict):
             self['band'],
         )
 
-        nullwt_flist=files.get_desdm_nullwt_flist(
+        finalcut_flist=files.get_desdm_finalcut_flist(
             self['medsconf'],
             self['tilename'],
             self['band'],
@@ -539,12 +560,19 @@ class Preparator(dict):
             'coadd_magzp':info['magzp'],
             'coadd_object_map':objmap,
 
-            'nwgint_flist':nullwt_flist,
+            'finalcut_flist':finalcut_flist,
             'seg_flist':seg_flist,
             'bkg_flist':bkg_flist,
 
             'meds_url':meds_file,
         }
+        if self['source_type'] != 'nullwt':
+            output['nwgint_flist'] = \
+                nullwt_flist=files.get_desdm_nullwt_flist(
+                    self['medsconf'],
+                    self['tilename'],
+                    self['band'],
+                )
 
         print("writing file config:",fname)
         with open(fname,'w') as fobj:

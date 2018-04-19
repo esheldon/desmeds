@@ -1077,6 +1077,33 @@ def get_desdm_file_config(medsconf, tilename, band):
         subdir='lists',
     )
 
+def get_desdm_finalcut_flist(medsconf, tilename, band):
+    """
+    the desdm version needs a list
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    type='finalcut-flist'
+    ext='dat'
+    return get_meds_datafile_generic(
+        medsconf,
+        tilename,
+        band,
+        type,
+        ext,
+        subdir='lists',
+    )
+
+
 def get_desdm_nullwt_flist(medsconf, tilename, band):
     """
     the desdm version needs a list

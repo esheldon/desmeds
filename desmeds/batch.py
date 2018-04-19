@@ -238,6 +238,7 @@ _coadd_script_template=r"""#!/bin/bash
 
 mkdir -p $TMPDIR
 nocoadd_file=%(meds_file_nocoadd)s
+band=%(band)s
 
 
 (
@@ -257,7 +258,7 @@ nocoadd_file=%(meds_file_nocoadd)s
     desmeds-make-meds \
         %(medsconf)s \
         %(tilename)s \
-        %(band)s \
+        ${band} \
         --tmpdir=$TMPDIR \
         --meds-file=${nocoadd_file}
 
@@ -279,8 +280,8 @@ ldir="${dir}/lists"
 pdir="${dir}/psfs"
 
 echo "cleaning temporary psf and list dirs"
-rm -rv "${ldir}"
-rm -rv "${pdir}"
+rm -v "${ldir}/*_${band}_*"
+rm -v "${pdir}/*_${band}_*"
 """
 
 def make_seed(conf):
