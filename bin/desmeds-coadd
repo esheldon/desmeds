@@ -2,6 +2,9 @@
 """
 Coadd the observations in the given MEDS file. Also coadd
 the PSFs
+
+If you wish to make the original MEDS file and the coadd,
+see desmeds-make-and-coadd
 """
 from __future__ import print_function
 import os
@@ -28,31 +31,6 @@ parser.add_argument('--tmpdir',default=None,
 parser.add_argument('--make-plots',action='store_true',
                     help='make plots of each epoch and the coadd')
 
-def load_psfmap(fname):
-    import psfex
-
-    pmap={}
-    with open(fname) as fobj:
-        for line in fobj:
-            ls=line.split()
-            if ls[0]=='-9999':
-                continue
-
-            expname=ls[0]
-            ccdstr=ls[1]
-            path=os.path.expandvars(ls[2])
-
-            key = '%s-%s' % (expname, ccdstr)
-
-            if 'psfexcat' in path:
-                print("loading psfex:",path)
-                p=psfex.PSFEx(path)
-            else:
-                raise ValueError("only psfex for now")
-            
-            pmap[key] = p
-
-    return pmap
 
 def main():
     args=parser.parse_args()
@@ -67,7 +45,7 @@ def main():
 
     meds_obj = meds.MEDS(args.meds_file)
 
-    psfmap = load_psfmap(args.psfmap_file)
+    psfmap = desmeds.util.load_psfmap(args.psfmap_file)
     coadder=desmeds.DESMEDSCoadder(
         config,
         meds_obj,

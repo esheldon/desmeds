@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
+import os
 import subprocess
 
 DEFVAL = -9999
@@ -52,4 +53,29 @@ def fpack_file(fname):
     subprocess.check_call(cmd,shell=True)
 
 
+def load_psfmap(fname):
+    import psfex
+
+    pmap={}
+    with open(fname) as fobj:
+        for line in fobj:
+            ls=line.split()
+            if ls[0]=='-9999':
+                continue
+
+            expname=ls[0]
+            ccdstr=ls[1]
+            path=os.path.expandvars(ls[2])
+
+            key = '%s-%s' % (expname, ccdstr)
+
+            if 'psfexcat' in path:
+                print("loading psfex:",path)
+                p=psfex.PSFEx(path)
+            else:
+                raise ValueError("only psfex for now")
+            
+            pmap[key] = p
+
+    return pmap
 

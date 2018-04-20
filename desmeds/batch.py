@@ -71,11 +71,22 @@ class Generator(dict):
         """
 
         if 'coadd' in self.config:
-            self._write_coadd_script()
+            self._write_coadd_maker_script()
         else:
             self._write_maker_script()
 
-    def _write_coadd_script(self):
+    def _write_coadd_maker_script(self):
+        make_dirs(self['script_file'])
+
+        self['seed']=make_seed(self)
+
+        with open(self['script_file'],'w') as fobj:
+            text=_coadd_script_template % self
+            fobj.write(text)
+
+
+    '''
+    def _write_coadd_script_old(self):
         make_dirs(self['script_file'])
 
         mf=self['meds_file']
@@ -94,11 +105,11 @@ class Generator(dict):
         with open(self['script_file'],'w') as fobj:
             text=_coadd_script_template % self
             fobj.write(text)
+    '''
 
     def _write_maker_script(self):
         make_dirs(self['script_file'])
 
-        #print("    writing script:",self['script_file'])
         with open(self['script_file'],'w') as fobj:
             text=_script_template % self
             fobj.write(text)
@@ -237,6 +248,18 @@ desmeds-make-meds \
 _coadd_script_template=r"""#!/bin/bash
 
 mkdir -p $TMPDIR
+
+desmeds-make-meds \
+    --tmpdir=$TMPDIR \
+    --coadd \
+    --seed=%(seed)d \
+    %(medsconf)s %(tilename)s %(band)s
+"""
+
+
+_coadd_script_template_old=r"""#!/bin/bash
+
+mkdir -p $TMPDIR
 nocoadd_file=%(meds_file_nocoadd)s
 band=%(band)s
 
@@ -276,12 +299,12 @@ echo "cleaning up temporary MEDS file"
 rm -v ${nocoadd_file}
 
 dir=$(dirname ${nocoadd_file})
-ldir="${dir}/lists"
-pdir="${dir}/psfs"
+ldir="${dir}/lists-${band}"
+pdir="${dir}/psfs-${band}"
 
 echo "cleaning temporary psf and list dirs"
-rm -v "${ldir}/*_${band}_*"
-rm -v "${pdir}/*_${band}_*"
+rm -rv "${ldir}"
+rm -rv "${pdir}"
 """
 
 def make_seed(conf):

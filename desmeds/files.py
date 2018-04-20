@@ -1,5 +1,7 @@
 from __future__ import print_function
 import os
+import shutil
+import tarfile
 import yaml
 import tempfile
 
@@ -263,7 +265,7 @@ def get_nullwt_dir(medsconf, tilename, band):
     dir=get_meds_dir(medsconf, tilename)
     return os.path.join(dir, 'nullwt-%s' % band)
 
-def get_psf_dir(medsconf, tilename):
+def get_psf_dir(medsconf, tilename, band):
     """
     get the directory holding copies of the psf files
 
@@ -273,10 +275,30 @@ def get_psf_dir(medsconf, tilename):
         A name for the meds version or config.  e.g. 'y3a1-v02'
     tilename: string
         e.g. 'DES0417-5914'
+    band: string
+        e.g. 'r'
     """
 
     dir=get_meds_dir(medsconf, tilename)
-    return os.path.join(dir, 'psfs')
+    return os.path.join(dir, 'psfs-%s' % band)
+
+def get_lists_dir(medsconf, tilename, band):
+    """
+    get the directory holding the file lists and info
+    files
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'r'
+    """
+
+    dir=get_meds_dir(medsconf, tilename)
+    return os.path.join(dir, 'lists-%s' % band)
 
 
 def get_meds_script(medsconf, tilename, band):
@@ -1025,20 +1047,6 @@ def get_temp_dir():
             tmpdir = tempfile.mkdtemp()
     return tmpdir
 
-def try_remove(fname, ntry=2, sleep_time=2):
-    import time
-    
-    for i in xrange(ntry):
-        try:
-            os.remove(fname)
-            break
-        except:
-            if i==(ntry-1):
-                raise
-            else:
-                print("could not remove '%s', trying again "
-                      "in %f seconds" % (fname,sleep_time))
-                time.sleep(sleep_time)
 
 def read_yaml(fname):
     with open(fname) as fobj:
@@ -1068,13 +1076,15 @@ def get_desdm_file_config(medsconf, tilename, band):
 
     type='fileconf'
     ext='yaml'
+    subdir='lists-%s' % band
+
     return get_meds_datafile_generic(
         medsconf,
         tilename,
         band,
         type,
         ext,
-        subdir='lists',
+        subdir=subdir,
     )
 
 def get_desdm_finalcut_flist(medsconf, tilename, band):
@@ -1094,13 +1104,15 @@ def get_desdm_finalcut_flist(medsconf, tilename, band):
 
     type='finalcut-flist'
     ext='dat'
+    subdir='lists-%s' % band
+
     return get_meds_datafile_generic(
         medsconf,
         tilename,
         band,
         type,
         ext,
-        subdir='lists',
+        subdir=subdir,
     )
 
 
@@ -1121,13 +1133,15 @@ def get_desdm_nullwt_flist(medsconf, tilename, band):
 
     type='nullwt-flist'
     ext='dat'
+    subdir='lists-%s' % band
+
     return get_meds_datafile_generic(
         medsconf,
         tilename,
         band,
         type,
         ext,
-        subdir='lists',
+        subdir=subdir,
     )
 
 def get_coaddinfo_file(medsconf, tilename, band):
@@ -1147,13 +1161,15 @@ def get_coaddinfo_file(medsconf, tilename, band):
 
     type='coaddinfo'
     ext='yaml'
+    subdir='lists-%s' % band
+
     return get_meds_datafile_generic(
         medsconf,
         tilename,
         band,
         type,
         ext,
-        subdir='lists',
+        subdir=subdir,
     )
 
 
@@ -1174,6 +1190,7 @@ def get_desdm_seg_flist(medsconf, tilename, band):
 
     type='seg-flist'
     ext='dat'
+    subdir='lists-%s' % band
 
     return get_meds_datafile_generic(
         medsconf,
@@ -1181,7 +1198,7 @@ def get_desdm_seg_flist(medsconf, tilename, band):
         band,
         type,
         ext,
-        subdir='lists',
+        subdir=subdir,
     )
 
 
@@ -1202,6 +1219,7 @@ def get_desdm_bkg_flist(medsconf, tilename, band):
 
     type='bkg-flist'
     ext='dat'
+    subdir='lists-%s' % band
 
     return get_meds_datafile_generic(
         medsconf,
@@ -1209,7 +1227,7 @@ def get_desdm_bkg_flist(medsconf, tilename, band):
         band,
         type,
         ext,
-        subdir='lists',
+        subdir=subdir,
     )
 
 
@@ -1230,13 +1248,54 @@ def get_desdm_objmap(medsconf, tilename, band):
 
     type='objmap'
     ext='fits'
+    subdir='lists-%s' % band
+
     return get_meds_datafile_generic(
         medsconf,
         tilename,
         band,
         type,
         ext,
-        subdir='lists',
+        subdir=subdir,
     )
 
+def try_remove_timeout(fname, ntry=2, sleep_time=2):
+    import time
+    
+    for i in xrange(ntry):
+        try:
+            os.remove(fname)
+            break
+        except:
+            if i==(ntry-1):
+                raise
+            else:
+                print("could not remove '%s', trying again "
+                      "in %f seconds" % (fname,sleep_time))
+                time.sleep(sleep_time)
+
+def try_remove(f):
+    try:
+        os.remove(f)
+        print("removed file:",f)
+    except:
+        print("could not remove file:",f)
+
+
+def try_remove_dir(d):
+    try:
+        shutil.rmtree(d)
+        print("removed dir:",d)
+    except:
+        print("could not remove dir:",d)
+
+
+def tar_directory(source_dir):
+    """
+    tar a directory to a tar file called directory.tar.gz
+    """
+    outfile=source_dir+'.tar.gz'
+    print("tarring directory %s -> %s" % (source_dir, outfile))
+    with tarfile.open(outfile, "w:gz") as tar:
+        tar.add(source_dir, arcname=os.path.basename(source_dir))
 

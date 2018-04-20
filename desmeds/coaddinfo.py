@@ -74,7 +74,7 @@ class Coadd(dict):
         try:
             subprocess.check_call(cmd,shell=True)
         finally:
-            files.try_remove(self['flist_file'])
+            files.try_remove_timeout(self['flist_file'])
 
         return info
         

@@ -17,21 +17,24 @@ class DESMEDSCoaddMaker(meds.MEDSCoaddMaker):
 
         print("writing MEDS file:",fname)
 
-        if self.tmpdir is None:
-            raise ValueError("tmpdir must not be None")
-
-        with StagedOutFile(fname,tmpdir=self.tmpdir) as sf:
-            if sf.path[-8:] == '.fits.fz':
-                self._write_and_fpack(sf.path, obj_range=obj_range)
-            else:
+        if self.tmpdir is not None:
+            with StagedOutFile(fname,tmpdir=self.tmpdir) as sf:
                 self._dowrite(sf.path, obj_range=obj_range)
+        else:
+            self._dowrite(fname, obj_range=obj_range)
+
+    def _dowrite(self, path, obj_range=None):
+        if path[-8:] == '.fits.fz':
+            self._write_and_fpack(path, obj_range=obj_range)
+        else:
+            self._write(path, obj_range=obj_range)
 
     def _write_and_fpack(self, fname, obj_range=None):
         local_fitsname = fname.replace('.fits.fz','.fits')
         assert local_fitsname != fname
 
         with TempFile(local_fitsname) as tfile:
-            self._dowrite(tfile.path, obj_range=obj_range)
+            self._write(tfile.path, obj_range=obj_range)
 
             # this will fpack to the proper path, which
             # will then be staged out if tmpdir is not None
@@ -39,7 +42,7 @@ class DESMEDSCoaddMaker(meds.MEDSCoaddMaker):
             # an exception raised
             util.fpack_file(tfile.path)
 
-    def _dowrite(self, fname, obj_range=None):
+    def _write(self, fname, obj_range=None):
         super(DESMEDSCoaddMaker,self).write(
             fname,
             obj_range=obj_range,

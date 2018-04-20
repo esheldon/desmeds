@@ -415,8 +415,12 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         """
         load the yaml file config
         """
-        with open(fileconf) as fobj:
-            self.file_dict=yaml.load( fobj )
+        if isinstance(fileconf, dict):
+            fd=fileconf
+        else:
+            fd=files.read_yaml(fileconf)
+
+        self.file_dict=fd
 
 
     def _write_and_fpack(self, maker, fname):
@@ -476,6 +480,24 @@ class Preparator(dict):
             self['tilename'],
             self['band'],
         )
+        self['psfmap_file']=files.get_psfmap_file(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+        self['psf_dir']=files.get_psf_dir(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+        self['lists_dir']=files.get_lists_dir(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+
+
+
 
 
     def go(self):
@@ -508,7 +530,8 @@ class Preparator(dict):
         remove all sources and nullwt files
         """
         self.clean_sources()
-        self.clean_nullwt()
+        if self['source_type'] == 'nullwt':
+            self.clean_nullwt()
 
     def clean_sources(self):
         """
@@ -700,19 +723,13 @@ class Preparator(dict):
 
         medsdir=files.get_meds_base()
 
-        psfmap_file=files.get_psfmap_file(
-            self['medsconf'],
-            self['tilename'],
-            self['band'],
-        )
-
-        psf_dir=files.get_psf_dir(self['medsconf'], self['tilename'])
+        psf_dir=self['psf_dir']
         if not os.path.exists(psf_dir):
             print("making directory:",psf_dir)
             os.makedirs(psf_dir)
 
-        print("writing psfmap:",psfmap_file)
-        with open(psfmap_file,'w') as psfmap_fobj:
+        print("writing psfmap:",self['psfmap_file'])
+        with open(self['psfmap_file'],'w') as psfmap_fobj:
             print("copying psf files")
 
             psfs = self._get_psf_list(info)
