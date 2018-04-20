@@ -48,12 +48,45 @@ class DESMEDSCoaddMaker(meds.MEDSCoaddMaker):
             obj_range=obj_range,
         )
 
-
-
 class DESMEDSCoadder(meds.MEDSCoadder):
     """
     implement DES specific stuff for postage stamp coadding
     """
+
+    '''
+    def _set_target_jacobian(self):
+        """
+        use median coadd jacobian info
+        """
+        import ngmix
+        # center doesn't matter
+
+        w,= np.where(self.m['ncutout'] > 0)
+        dudrow = np.median(self.m['dudrow'][w,0])
+        dudcol = np.median(self.m['dudcol'][w,0])
+        dvdrow = np.median(self.m['dvdrow'][w,0])
+        dvdcol = np.median(self.m['dvdcol'][w,0])
+
+        self.target_jacobian=ngmix.Jacobian(
+            row=15, col=15,
+            dudrow=dudrow,
+            dudcol=dudcol,
+            dvdrow=dvdrow,
+            dvdcol=dvdcol,
+        )
+    '''
+
+    def _set_target_jacobian(self):
+        import ngmix
+        # center doesn't matter
+
+        self.target_jacobian=ngmix.Jacobian(
+            row=15, col=15,
+            dudrow=-0.263,
+            dudcol=0.0,
+            dvdrow=0.0,
+            dvdcol=-0.263,
+        )
 
     def _get_psf_obs(self, obs, file_id, meta, row, col):
         """
