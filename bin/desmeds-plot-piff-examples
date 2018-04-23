@@ -5,6 +5,7 @@ this tile.
 """
 from __future__ import print_function
 import os
+import biggles
 import images
 import piff
 import desmeds
@@ -55,18 +56,50 @@ class PIFFPlotter(dict):
 
                 self._write_image(exp, ccd, pobj)
 
+    def _measure(self, im):
+        import ngmix
+        guess=4.0
+        cen=(numpy.array(im.shape)-1.0)/2.0
+        j = ngmix.DiagonalJacobian(
+            row=cen[0],
+            col=cen[1],
+            scale=0.263,
+        )
+        obs = ngmix.Observation(
+            im,
+            jacobian=j,
+        )
+
+        for i in xrange(2):
+            fitter=ngmix.admom.run_admom(obs, guess)
+            res=fitter.get_result()
+            if res['flags']==0:
+                break
+
+        if res['flags']==0:
+            sigma=numpy.sqrt(res['pars'][4]/2.0)
+            fwhm=ngmix.moments.sigma_to_fwhm(sigma)
+        else:
+            fwhm=-9999.0
+        return fwhm
+
     def _write_image(self, exp, ccd, pobj):
         y,x = numpy.random.uniform(low=100.0, high=500.0, size=2)
         im = pobj.draw(x=x, y=y, stamp_size=17).array
 
-        im -= im.min()
+        #im -= im.min()
         im *= 1.0/im.max()
+
+        fwhm = self._measure(im)
+        fwhmstr = 'FWHM: %.2f' % fwhm
 
         pngfile=self._get_png_file(exp, ccd, y, x)
         try_makedirs(pngfile)
 
         print(pngfile)
-        plt=images.multiview(im, nonlinear=0.8, show=False)
+        plt=images.multiview(im, profile=True, nonlinear=0.8, show=False)
+        plt[0,1].add( biggles.LineY(0) )
+        plt[0,1].add( biggles.PlotLabel(0.9,0.9,fwhmstr,halign='right') )
         plt.title='%s-%s %s' % (exp, ccd, self['band'])
         plt.write_img(800,400,pngfile)
 
