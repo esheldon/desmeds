@@ -81,7 +81,7 @@ class DESMEDSCoaddMaker(meds.MEDSCoaddMaker):
                     tsizemax = max(tsizemax, pim.size)
                     max_box_size = max(max_box_size, pim.shape[0])
 
-            self.total_psf_pixels += tsizemax
+                self.total_psf_pixels += tsizemax
 
         print("max box size:",max_box_size)
         self.total_psf_pixels = int(1.1*self.total_psf_pixels)
