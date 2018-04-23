@@ -3,6 +3,10 @@ import numpy as np
 import os
 import meds
 from . import util
+try:
+    xrange
+except:
+    xrange=range
 
 from .files import (
     TempFile,
@@ -48,6 +52,40 @@ class DESMEDSCoaddMaker(meds.MEDSCoaddMaker):
             obj_range=obj_range,
         )
 
+    def _set_psf_layout(self):
+        print("setting psf layout")
+
+        # to fool the maker; need to make psf type
+        # more natural
+        self.psf_data=1
+
+        max_box_size=0
+
+        m=self.m
+
+        self.total_psf_pixels=0
+        for iobj in xrange(m.size):
+
+            # get the max of the epochs
+            ncutout=m['ncutout'][iobj]
+            if ncutout > 1:
+                tsizemax=0
+                for icut in xrange(1,m['ncutout'][iobj]):
+                    file_id=m['file_id'][iobj, icut]
+
+                    pim, pcen = self.coadder._get_psf_im(
+                        file_id,
+                        500,
+                        500,
+                    )
+                    tsizemax = max(tsizemax, pim.size)
+                    max_box_size = max(max_box_size, pim.shape[0])
+
+            self.total_psf_pixels += tsizemax
+
+        print("max box size:",max_box_size)
+        self.total_psf_pixels = int(1.1*self.total_psf_pixels)
+
 class DESMEDSCoadder(meds.MEDSCoadder):
     """
     implement DES specific stuff for postage stamp coadding
@@ -88,6 +126,19 @@ class DESMEDSCoadder(meds.MEDSCoadder):
             dvdcol=-0.263,
         )
 
+    def _get_psf_im(self, file_id, row, col):
+        ii=self.m.get_image_info()
+        path=ii['image_path'][file_id]
+        key = extract_nullwt_key(path)
+
+        p = self.psfmap[key]
+        pim = p.get_rec(row, col)
+
+        pcen = p.get_center(row, col)
+
+        return pim, pcen
+
+
     def _get_psf_obs(self, obs, file_id, meta, row, col):
         """
         psfex specific code here
@@ -100,15 +151,9 @@ class DESMEDSCoadder(meds.MEDSCoadder):
 
         pmeta={}
 
-        ii=self.m.get_image_info()
-        path=ii['image_path'][file_id]
-        key = extract_nullwt_key(path)
-
         rowget=row+0.5
         colget=col+0.5
-        p = self.psfmap[key]
-        pim = p.get_rec(rowget, colget)
-        pcen = p.get_center(rowget, colget)
+        pim, pcen = self._get_psf_im(file_id, rowget, colget)
         ccen=(np.array(pim.shape)-1.0)/2.0
 
         # for psfex we assume the jacobian is the same, not
@@ -120,14 +165,6 @@ class DESMEDSCoadder(meds.MEDSCoadder):
             row_offset=pjac.row0-ccen[0],
             col_offset=pjac.col0-ccen[1],
         )
-
-        """
-        print("psf dims:",pim.shape)
-        print("ccen:",ccen)
-        print("pcen:",pcen)
-        print("image offset pixels:",meta['offset_pixels'])
-        print("psf   offset pixels:",pmeta['offset_pixels'])
-        """
 
         psf_weight=np.zeros(pim.shape) + 1.0/0.001**2
 
