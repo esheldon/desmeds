@@ -151,8 +151,13 @@ class DESMEDSCoadder(meds.MEDSCoadder):
 
         pmeta={}
 
-        rowget=row+0.5
-        colget=col+0.5
+        if self['dither_psfs']:
+            rowget=row+0.5
+            colget=col+0.5
+        else:
+            #print("not dithering psfs")
+            rowget=int(row)
+            colget=int(col)
         pim, pcen = self._get_psf_im(file_id, rowget, colget)
         ccen=(np.array(pim.shape)-1.0)/2.0
 
@@ -165,6 +170,7 @@ class DESMEDSCoadder(meds.MEDSCoadder):
             row_offset=pjac.row0-ccen[0],
             col_offset=pjac.col0-ccen[1],
         )
+        #print("psf offsets:",pmeta['offset_pixels'])
 
         psf_weight=np.zeros(pim.shape) + 1.0/0.001**2
 
