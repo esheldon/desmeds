@@ -5,6 +5,7 @@ this tile.
 """
 from __future__ import print_function
 import os
+import biggles
 import images
 import piff
 import desmeds
@@ -55,20 +56,74 @@ class PIFFPlotter(dict):
 
                 self._write_image(exp, ccd, pobj)
 
+    def _measure(self, im):
+        import ngmix
+        scale=0.263
+        guess=4.0*0.263
+        cen=(numpy.array(im.shape)-1.0)/2.0
+        j = ngmix.DiagonalJacobian(
+            row=cen[0],
+            col=cen[1],
+            scale=scale,
+        )
+        obs = ngmix.Observation(
+            im,
+            jacobian=j,
+        )
+
+        for i in xrange(2):
+            fitter=ngmix.admom.run_admom(obs, guess)
+            res=fitter.get_result()
+            if res['flags']==0:
+                break
+
+        if res['flags']==0:
+            sigma=numpy.sqrt(res['pars'][4]/2.0)
+            fwhm=ngmix.moments.sigma_to_fwhm(sigma)
+        else:
+            fwhm=-9999.0
+        return fitter, fwhm
+
     def _write_image(self, exp, ccd, pobj):
         y,x = numpy.random.uniform(low=100.0, high=500.0, size=2)
         im = pobj.draw(x=x, y=y, stamp_size=17).array
 
-        im -= im.min()
+        #im -= im.min()
         im *= 1.0/im.max()
+
+        fitter, fwhm = self._measure(im)
+        fwhmstr = 'FWHM: %.2f' % fwhm
+       
 
         pngfile=self._get_png_file(exp, ccd, y, x)
         try_makedirs(pngfile)
-
         print(pngfile)
-        plt=images.multiview(im, nonlinear=0.8, show=False)
-        plt.title='%s-%s %s' % (exp, ccd, self['band'])
-        plt.write_img(800,400,pngfile)
+
+
+        title='%s-%s %s' % (exp, ccd, self['band'])
+        tab=biggles.Table(1,2,title=title)
+
+        tab[0,0] = images.view(im, nonlinear=0.8, show=False)
+
+        key=biggles.PlotKey(0.9, 0.9, halign='right')
+        tab[0,1] = biggles.FramedPlot(key=key, aspect_ratio=1.0)
+
+        r, im2plot = images.get_profile(im)
+        pts = biggles.Points(r, im2plot, type='filled circle', label='data')
+        tab[0,1].add(pts, biggles.LineY(0) )
+
+        if fitter.get_result()['flags']==0:
+            gm=fitter.get_gmix()
+            gim=gm.make_image(im.shape, jacobian=fitter._obs.jacobian)
+            gim *= 1.0/gim.max()
+            r,pgim=images.get_profile(gim)
+            mpts=biggles.Points(r, pgim,
+                                color='red',
+                                type='filled diamond',
+                                label='gauss '+fwhmstr)
+            tab[0,1].add( mpts )
+
+        tab.write_img(800,400,pngfile)
 
     def _get_map_file(self):
         return desmeds.files.get_piff_map_file(
