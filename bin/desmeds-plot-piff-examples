@@ -5,20 +5,25 @@ this tile.
 """
 from __future__ import print_function
 import os
+import numpy as np
 import biggles
 import images
 import piff
 import desmeds
 import numpy
+from glob import glob
 
 from argparse import ArgumentParser
 
 parser=ArgumentParser()
 
-parser.add_argument('medsconf',help='e.g. y3v02')
 parser.add_argument('piff_run',help='e.g. y3a1-v23')
-parser.add_argument('tilename',help='e.g. DES0547-3206')
-parser.add_argument('band',help='e.g. i')
+
+parser.add_argument('--medsconf',help='e.g. y3v02')
+parser.add_argument('--tilename',help='e.g. DES0547-3206')
+parser.add_argument('--band',help='e.g. i')
+
+parser.add_argument('--explist',help='path to full list')
 
 
 class PIFFPlotter(dict):
@@ -86,7 +91,7 @@ class PIFFPlotter(dict):
 
     def _write_image(self, exp, ccd, pobj):
         y,x = numpy.random.uniform(low=100.0, high=500.0, size=2)
-        im = pobj.draw(x=x, y=y, stamp_size=17).array
+        im = pobj.draw(x=(x+0.5), y=(y+0.5), stamp_size=17).array
 
         #im -= im.min()
         im *= 1.0/im.max()
@@ -100,7 +105,10 @@ class PIFFPlotter(dict):
         print(pngfile)
 
 
-        title='%s-%s %s' % (exp, ccd, self['band'])
+        if 'band' in self:
+            title='%s-%s %s' % (exp, ccd, self['band'])
+        else:
+            title='%s-%s' % (exp, ccd)
         tab=biggles.Table(1,2,title=title)
 
         tab[0,0] = images.view(im, nonlinear=0.8, show=False)
@@ -156,6 +164,61 @@ class PIFFPlotter(dict):
         assert 'PIFF_DATA_DIR' in os.environ
         assert 'MEDS_DIR' in os.environ
 
+class PIFFPlotterByExp(PIFFPlotter):
+    def __init__(self, piff_run, explist):
+        self['piff_run'] = piff_run
+        self.expnums = np.fromfile(explist,sep='\n',dtype='i8')
+
+    def go(self):
+        for exp in self.expnums:
+            d=os.path.join(
+                os.environ['PIFF_DATA_DIR'],
+                self['piff_run'],
+                '%s' % exp,
+            )
+            for ccd in xrange(1,62+1):
+                if ccd in [02,31,61]:
+                    continue
+                pattern= os.path.join(
+                    d,
+                    'D%08d_*_c%02d*.fits' % (exp,ccd)
+                )
+                flist=glob(pattern)
+                if len(flist)==0:
+                    print("missing:",exp,ccd)
+                    continue
+
+                if len(flist) > 1:
+                    print("found multiple:",flist)
+                    continue
+
+                path=flist[0]
+                try:
+                    pobj=piff.read(path)
+                except IOError as err:
+                    print(err)
+                    continue
+
+                self._write_image(exp, ccd, pobj)
+
+    def _get_png_dir(self, exp):
+        return os.path.join(
+            os.environ['PIFF_MAP_DIR'],
+            'images',
+            self['piff_run'],
+            '%s' % exp,
+        )
+
+    def _get_png_file(self, exp, ccd, y, x):
+        d=self._get_png_dir(exp)
+        fname='%s-%s-piff-%.1f-%.1f.png'
+        fname = fname % (exp, ccd, y, x)
+        return os.path.join(
+            d,
+            fname,
+        )
+
+
 def try_makedirs(fname):
     dir=os.path.dirname(fname)
     if not os.path.exists(dir):
@@ -166,10 +229,22 @@ def try_makedirs(fname):
 
 if __name__=="__main__":
     args = parser.parse_args()
-    maker = PIFFPlotter(
-        args.piff_run,
-        args.medsconf,
-        args.tilename,
-        args.band,
-    )
+
+    if args.explist is not None:
+        maker = PIFFPlotterByExp(
+            args.piff_run,
+            args.explist,
+        )
+
+    else:
+        assert args.medsonf is not None
+        assert args.tilename is not None
+        assert args.band is not None
+
+        maker = PIFFPlotter(
+            args.piff_run,
+            args.medsconf,
+            args.tilename,
+            args.band,
+        )
     maker.go()
