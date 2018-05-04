@@ -150,7 +150,7 @@ class Generator(dict):
 
         self._write_script()
 
-    def _write_wq(self, type):
+    def _write_wq(self):
         """
         write the wq script
         """
