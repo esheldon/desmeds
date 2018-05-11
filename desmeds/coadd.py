@@ -138,6 +138,67 @@ class DESMEDSCoadder(meds.MEDSCoadder):
 
         return pim, pcen
 
+    def _get_psf_obs_fake(self, obs, file_id, meta, row, col):
+        """
+        psfex specific code here
+
+        for psfex we need to add 0.5 to get an offset
+        that is the same as used for the object
+        """
+        import ngmix
+        assert self['psf']['type']=='psfex',"only psfex for now"
+
+        pmeta={}
+
+        if self['dither_psfs']:
+            rowget=row+0.5
+            colget=col+0.5
+        else:
+            #print("not dithering psfs")
+            rowget=int(row)
+            colget=int(col)
+        pim, pcen = self._get_psf_im(file_id, rowget, colget)
+        psf_weight=np.zeros(pim.shape) + 1.0/0.001**2
+
+        ccen=(np.array(pim.shape)-1.0)/2.0
+
+        # for psfex we assume the jacobian is the same, not
+        # quite right
+        pjac = obs.jacobian.copy()
+        #pjac.set_cen(row=pcen[0], col=pcen[1])
+        pjac.set_cen(row=ccen[0], col=ccen[1])
+
+        # now fake the image
+        import ngmix
+        fac=pjac.get_scale()**2
+        T = 4.0*fac
+        gm = ngmix.GMixModel([0.0,0.0,0.00,0.0,T,1.0],"gauss")
+        pim = gm.make_image(pim.shape, jacobian=pjac)
+        noise = 0.0001
+        pim += self.rng.normal(scale=noise, size=pim.shape)
+        psf_weight = psf_weight*0 + 1.0/noise**2
+
+
+        pmeta['offset_pixels']=dict(
+            row_offset=pjac.row0-ccen[0],
+            col_offset=pjac.col0-ccen[1],
+        )
+        #print("psf offsets:",pmeta['offset_pixels'])
+
+
+        psf_obs = ngmix.Observation(
+            pim,
+            weight=psf_weight,
+            jacobian=pjac,
+            meta=pmeta,
+        )
+        Tguess=T
+        fitter=ngmix.admom.run_admom(psf_obs, Tguess)
+        res=fitter.get_result()
+        ngmix.print_pars(res['e'],front='  best e: ')
+        print('  T frac:',res['T']/T-1)
+        return psf_obs
+
 
     def _get_psf_obs(self, obs, file_id, meta, row, col):
         """
