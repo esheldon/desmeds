@@ -254,9 +254,14 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         ngmwint files
         """
 
+        # for coadd-only this should be set to False
+        have_se_images=self.file_dict.get('have_se_images',True)
+        if not have_se_images:
+            return []
+
         # read the full coadd info that we dumped to file
         fname=files.get_coaddinfo_file(
-            self.medsconf['medsconf'],
+            self['medsconf'],
             self.file_dict['tilename'],
             self.file_dict['band'],
         )
