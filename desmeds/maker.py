@@ -14,6 +14,7 @@ import os
 from os.path import basename
 import numpy
 from numpy import zeros, sqrt, log, vstack, array
+from numpy import pi as PI
 import json
 import yaml
 
@@ -466,6 +467,9 @@ class DESMEDSMaker(dict):
         self.obj_data['input_row'] = pos['zrow']
         self.obj_data['input_col'] = pos['zcol']
 
+        iso_area = self.coadd_cat[self['isoarea_name']].clip(min=1)
+        self.obj_data['iso_radius'] = sqrt(iso_area/PI)
+
         # required
         self.obj_data['box_size'] = self._get_box_sizes()
 
@@ -643,6 +647,7 @@ class DESMEDSMaker(dict):
 
         self['extra_obj_data_fields'] = [
             ('number','i8'),
+            ('iso_radius','f4'),
             ('input_row','f8'),
             ('input_col','f8'),
         ]

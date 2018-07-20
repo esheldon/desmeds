@@ -20,6 +20,9 @@ default_config = {
     'row_name':'y_image',
     'col_name':'x_image',
 
+    # isophotoal area for iso_radius calculation
+    'isoarea_name': 'isoarea_image',
+
     # for fpacking the file
     'fpack_dims': [10240,1],
 
