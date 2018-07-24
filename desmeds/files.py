@@ -389,6 +389,8 @@ def get_psfmap_file(medsconf, tilename, band):
 
 def get_piff_map_file(medsconf, piff_run, tilename, band):
     """
+    no longer used
+
     psf map file for piff
     parameters
     ----------

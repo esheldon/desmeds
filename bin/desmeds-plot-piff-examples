@@ -19,47 +19,45 @@ parser=ArgumentParser()
 
 parser.add_argument('piff_run',help='e.g. y3a1-v23')
 
-parser.add_argument('--medsconf',help='e.g. y3v02')
-parser.add_argument('--tilename',help='e.g. DES0547-3206')
-parser.add_argument('--band',help='e.g. i')
-
+parser.add_argument('--expnum',type=int,help='expnum to show')
 parser.add_argument('--explist',help='path to full list')
 
-
 class PIFFPlotter(dict):
-    def __init__(self, piff_run, medsconf, tilename, band):
+    def __init__(self, piff_run, expnums):
         self['piff_run'] = piff_run
-        self['medsconf'] = medsconf
-        self['tilename'] = tilename
-        self['band'] = band
-
-        self._check()
+        self.expnums=expnums
 
     def go(self):
-        map_file=self._get_map_file()
-
-        with open(map_file) as fobj:
-            lines = fobj.readlines()
-            nl = len(lines)
-            for i,line in enumerate(lines):
-                if 'piff' not in line:
+        for expnum in self.expnums:
+            d=os.path.join(
+                os.environ['PIFF_DATA_DIR'],
+                self['piff_run'],
+                '%s' % expnum,
+            )
+            for ccdnum in xrange(1,62+1):
+                if ccdnum in [02,31,61]:
+                    continue
+                pattern= os.path.join(
+                    d,
+                    'D%08d_*_c%02d*.fits' % (expnum,ccdnum)
+                )
+                flist=glob(pattern)
+                if len(flist)==0:
+                    print("missing:",expnum,ccdnum)
                     continue
 
-                
-                line=line.strip()
-                exp, ccd, path =line.split()
-                if path=='missing':
+                if len(flist) > 1:
+                    print("found multiple:",flist)
                     continue
 
-                print("%d/%d %s" % (i+1,nl,line))
-
+                path=flist[0]
                 try:
                     pobj=piff.read(path)
                 except IOError as err:
                     print(err)
                     continue
 
-                self._write_image(exp, ccd, pobj)
+                self._write_image(expnum, ccdnum, pobj)
 
     def _measure(self, im):
         import ngmix
@@ -89,9 +87,9 @@ class PIFFPlotter(dict):
             fwhm=-9999.0
         return fitter, fwhm
 
-    def _write_image(self, exp, ccd, pobj):
+    def _write_image(self, expnum, ccdnum, pobj):
         y,x = numpy.random.uniform(low=100.0, high=500.0, size=2)
-        im = pobj.draw(x=(x+0.5), y=(y+0.5), stamp_size=17).array
+        im = pobj.draw(x=int(x+0.5), y=int(y+0.5), stamp_size=21).array
 
         #im -= im.min()
         im *= 1.0/im.max()
@@ -100,15 +98,15 @@ class PIFFPlotter(dict):
         fwhmstr = 'FWHM: %.2f' % fwhm
        
 
-        pngfile=self._get_png_file(exp, ccd, y, x)
+        pngfile=self._get_png_file(expnum, ccdnum, y, x)
         try_makedirs(pngfile)
         print(pngfile)
 
 
         if 'band' in self:
-            title='%s-%s %s' % (exp, ccd, self['band'])
+            title='%s-%s %s' % (expnum, ccdnum, self['band'])
         else:
-            title='%s-%s' % (exp, ccd)
+            title='%s-%s' % (expnum, ccdnum)
         tab=biggles.Table(1,2,title=title)
 
         tab[0,0] = images.view(im, nonlinear=0.8, show=False)
@@ -133,27 +131,19 @@ class PIFFPlotter(dict):
 
         tab.write_img(800,400,pngfile)
 
-    def _get_map_file(self):
-        return desmeds.files.get_piff_map_file(
-            self['medsconf'],
-            self['piff_run'],
-            self['tilename'],
-            self['band'],
-        )
 
-    def _get_png_dir(self, exp):
+    def _get_png_dir(self, expnum):
         return os.path.join(
             os.environ['PIFF_MAP_DIR'],
             'images',
-            self['medsconf'],
             self['piff_run'],
-            exp,
-
+            expnum,
         )
-    def _get_png_file(self, exp, ccd, y, x):
-        d=self._get_png_dir(exp)
+
+    def _get_png_file(self, expnum, ccdnum, y, x):
+        d=self._get_png_dir(expnum)
         fname='%s-%s-%s-piff-%.1f-%.1f.png'
-        fname = fname % (exp, ccd, self['band'], y, x)
+        fname = fname % (expnum, ccdnum, y, x)
         return os.path.join(
             d,
             fname,
@@ -164,55 +154,18 @@ class PIFFPlotter(dict):
         assert 'PIFF_DATA_DIR' in os.environ
         assert 'MEDS_DIR' in os.environ
 
-class PIFFPlotterByExp(PIFFPlotter):
-    def __init__(self, piff_run, explist):
-        self['piff_run'] = piff_run
-        self.expnums = np.fromfile(explist,sep='\n',dtype='i8')
-
-    def go(self):
-        for exp in self.expnums:
-            d=os.path.join(
-                os.environ['PIFF_DATA_DIR'],
-                self['piff_run'],
-                '%s' % exp,
-            )
-            for ccd in xrange(1,62+1):
-                if ccd in [02,31,61]:
-                    continue
-                pattern= os.path.join(
-                    d,
-                    'D%08d_*_c%02d*.fits' % (exp,ccd)
-                )
-                flist=glob(pattern)
-                if len(flist)==0:
-                    print("missing:",exp,ccd)
-                    continue
-
-                if len(flist) > 1:
-                    print("found multiple:",flist)
-                    continue
-
-                path=flist[0]
-                try:
-                    pobj=piff.read(path)
-                except IOError as err:
-                    print(err)
-                    continue
-
-                self._write_image(exp, ccd, pobj)
-
-    def _get_png_dir(self, exp):
+    def _get_png_dir(self, expnum):
         return os.path.join(
             os.environ['PIFF_MAP_DIR'],
             'images',
             self['piff_run'],
-            '%s' % exp,
+            '%s' % expnum,
         )
 
-    def _get_png_file(self, exp, ccd, y, x):
-        d=self._get_png_dir(exp)
+    def _get_png_file(self, expnum, ccdnum, y, x):
+        d=self._get_png_dir(expnum)
         fname='%s-%s-piff-%.1f-%.1f.png'
-        fname = fname % (exp, ccd, y, x)
+        fname = fname % (expnum, ccdnum, y, x)
         return os.path.join(
             d,
             fname,
@@ -231,20 +184,15 @@ if __name__=="__main__":
     args = parser.parse_args()
 
     if args.explist is not None:
-        maker = PIFFPlotterByExp(
-            args.piff_run,
-            args.explist,
-        )
-
+        expnums = np.fromfile(args.explist,sep='\n',dtype='i8')
+    elif args.expnum is not None:
+        expnums = [args.expnum]
     else:
-        assert args.medsonf is not None
-        assert args.tilename is not None
-        assert args.band is not None
+        raise ValueError("send either --explist or --expnum")
 
-        maker = PIFFPlotter(
-            args.piff_run,
-            args.medsconf,
-            args.tilename,
-            args.band,
-        )
+
+    maker = PIFFPlotter(
+        args.piff_run,
+        expnums,
+    )
     maker.go()
