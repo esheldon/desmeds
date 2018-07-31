@@ -20,8 +20,21 @@ default_config = {
     'row_name':'y_image',
     'col_name':'x_image',
 
+    # sextractor flags
+    'flags_name': 'flags',
+
     # isophotoal area for iso_radius calculation
     'isoarea_name': 'isoarea_image',
+
+    # some kind of flux
+    'flux_name': 'flux_auto',
+    'fluxerr_name': 'fluxerr_auto',
+
+    # second moments
+    'x2_name':    'x2_image',
+    'x2err_name': 'errx2_image',
+    'y2_name':    'y2_image',
+    'y2err_name': 'erry2_image',
 
     # for fpacking the file
     'fpack_dims': [10240,1],

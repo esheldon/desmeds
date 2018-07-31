@@ -467,6 +467,15 @@ class DESMEDSMaker(dict):
         self.obj_data['input_row'] = pos['zrow']
         self.obj_data['input_col'] = pos['zcol']
 
+        self.obj_data['flags']    = self.coadd_cat[self['flags_name']]
+        self.obj_data['flux']     = self.coadd_cat[self['flux_name']]
+        self.obj_data['flux_err'] = self.coadd_cat[self['fluxerr_name']]
+        self.obj_data['x2']       = self.coadd_cat[self['x2_name']]
+        self.obj_data['x2_err']   = self.coadd_cat[self['x2err_name']]
+        self.obj_data['y2']       = self.coadd_cat[self['y2_name']]
+        self.obj_data['y2_err']   = self.coadd_cat[self['y2err_name']]
+
+
         iso_area = self.coadd_cat[self['isoarea_name']].clip(min=1)
         self.obj_data['iso_radius'] = sqrt(iso_area/PI)
 
@@ -647,7 +656,14 @@ class DESMEDSMaker(dict):
 
         self['extra_obj_data_fields'] = [
             ('number','i8'),
+            ('flags','i4'),
             ('iso_radius','f4'),
+            ('flux','f4'),
+            ('flux_err','f4'),
+            ('x2','f4'),
+            ('x2_err','f4'),
+            ('y2','f4'),
+            ('y2_err','f4'),
             ('input_row','f8'),
             ('input_col','f8'),
         ]
