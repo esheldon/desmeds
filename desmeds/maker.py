@@ -307,7 +307,8 @@ class DESMEDSMaker(dict):
         wcs_json = []
         wcs_json.append(json.dumps(util.fitsio_header_to_dict(coadd_wcs)))
         for s in srclist:
-            wcs_json.append(json.dumps(s['wcs_header']))
+            #wcs_json.append(json.dumps(s['wcs_header']))
+            wcs_json.append(json.dumps(util.fitsio_header_to_dict(s['wcs_header'])))
         return wcs_json
 
     def _get_srclist(self):
@@ -354,6 +355,8 @@ class DESMEDSMaker(dict):
             ('medsconf','S%d' % len(self['medsconf'])),
             ('config','S%d' % len(cfg)),
             ('desmeds_version','S%d' % len(defaults.__version__)),
+            ('band','S1'),
+            ('tilename','S12'),
         ]
         return dt
 
@@ -372,6 +375,8 @@ class DESMEDSMaker(dict):
         meta_data['medsconf'] = self['medsconf']
         meta_data['config'] = cfg
         meta_data['desmeds_version'] = defaults.__version__
+        meta_data['band'] = self.file_dict['band']
+        meta_data['tilename'] = self.file_dict['tilename']
 
         self.meta_data = meta_data
 

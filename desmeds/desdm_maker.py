@@ -249,15 +249,56 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         return path, magzp
 
     def _load_source_image_info(self):
-        """
-        Load all meta information needed from the
-        ngmwint files
-        """
 
         # for coadd-only this should be set to False
         have_se_images=self.file_dict.get('have_se_images',True)
         if not have_se_images:
-            return []
+            res=[]
+
+        elif 'finalcut_flist' in self.file_dict:
+            assert self['source_type']=='finalcut','source type should be finalcut'
+            assert self['use_astro_refine'] is True,'use_astro_refine should be True'
+            res=self._load_src_info_fromfile(self.file_dict['finalcut_flist'])
+
+        else:
+            res=self._load_source_image_info_fromdb()
+
+        return res
+
+    def _load_src_info_fromfile(self, finalcut_flist):
+        src_info = []
+
+        with open(finalcut_flist) as fobj:
+            for line in fobj:
+                ls = line.split()
+                red_path=ls[0]
+                ohead_path=ls[1]
+                magzp=float(ls[2])
+                #magzp=30.0
+
+                img_hdr = fitsio.read_header(red_path, ext=self['se_image_ext'])
+                wcs_hdr = fitsio.read_scamp_head(ohead_path)
+                wcs_hdr = util.add_naxis_to_fitsio_header(wcs_hdr,img_hdr)
+
+                sid = self._get_filename_as_id(red_path)
+                entry = {
+                    'id':sid,
+                    'flags':0,
+                    'red_image':red_path,
+                    'magzp':magzp,
+                    'wcs_header':wcs_hdr,
+                }
+
+                src_info.append(entry)
+
+        return src_info
+
+
+    def _load_source_image_info_fromdb(self):
+        """
+        Load all meta information needed from the
+        ngmwint files
+        """
 
         # read the full coadd info that we dumped to file
         fname=files.get_coaddinfo_file(
@@ -308,56 +349,6 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
 
 
-    def _load_source_image_info_old(self):
-        """
-        Load all meta information needed from the
-        ngmwint files
-        """
-
-        if self['source_type'] == 'nullwt':
-            # refined astrometry already present
-            entry='nwgint_flist'
-        else:
-            entry='finalcut_flist'
-
-        if entry not in self.file_dict:
-            return []
-
-        fname=self.file_dict[entry]
-        print("reading source image list and loading headers:",fname)
-
-        red_info=[]
-        with open(fname) as fobj:
-            for line in fobj:
-
-                path, magzp = self._extract_source_image_line(line)
-                if path==None:
-                    continue
-
-                sid = self._get_filename_as_id(path)
-
-                # now mock up the structure of the Coadd.srclist
-
-                if self['use_astro_refine']:
-                    print("using astro refine")
-                    img_hdr = fitsio.read_header(path, ext=self['se_image_ext'])
-                    wcs_hdr = fitsio.read_scamp_head(s['head_path'])
-                    wcs_hdr = util.add_naxis_to_fitsio_header(wcs_hdr,img_hdr)
-                else:
-                    wcs_hdr = fitsio.read_header(path, ext=self['se_image_ext'])
-                    wcs_header = util.fitsio_header_to_dict(wcs_hdr)
-
-                s={
-                    'id':sid,
-                    'flags':0,  # assume no problems!
-                    'red_image':path,
-                    'magzp':magzp,
-                    'wcs_header':wcs_header,
-                }
-
-                red_info.append(s)
-
-        return red_info
 
     def _get_coadd_objects_ids(self):
         """
