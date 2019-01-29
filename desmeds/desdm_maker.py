@@ -210,14 +210,38 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                 src['red_bkg'] = bkg_info[i]
                 src['red_seg'] = seg_info[i]
 
+            self._verify_src_info(srclist)
+
         return srclist
+
+    def _verify_src_info(self, srclist):
+        """
+        make sure the lists match by exp, band, ccd
+
+        D00502664_r_c36_r2378p01_immasked.fits.fz
+        D00502664_r_c36_r2378p01_bkg.fits.fz
+        D00502664_r_c36_r2378p01_segmap.fits.fz
+        """
+        for src in srclist:
+            rs = os.path.basename(src['red_image']).split('_')
+            bs = os.path.basename(src['red_bkg']).split('_')
+            ss = os.path.basename(src['red_seg']).split('_')
+
+            assert rs[0] == bs[0],"exp ids don't match"
+            assert rs[0] == ss[0],"exp ids don't match"
+
+            assert rs[1] == bs[1],"bands don't match"
+            assert rs[1] == ss[1],"bands don't match"
+
+            assert rs[2] == bs[2],"ccds don't match"
+            assert rs[2] == ss[2],"ccds don't match"
 
     def _read_generic_flist(self, key):
         """
         read a list of file paths, one per line
         """
         fname=self.file_dict[key]
-        print("reading:",key)
+        print("reading:",key,'from:',fname)
 
         flist=[]
         with open(fname) as fobj:
@@ -266,6 +290,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         return res
 
     def _load_src_info_fromfile(self, finalcut_flist):
+        print('reading finalcut info from:',finalcut_flist)
         src_info = []
 
         with open(finalcut_flist) as fobj:
