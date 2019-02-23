@@ -102,6 +102,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             self.image_info,
             config=self,
             meta_data=self.meta_data,
+            psf_data=self.psf_data,
         )
 
         if fname is None:
@@ -154,10 +155,18 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         cf['seg_url']   = fd['coadd_seg_url']
         cf['image_id']  = iid
 
+        if 'coadd_psf_url' in fd:
+            cf['psf_url'] = fd['coadd_psf_url']
+
         # probably from from header MAGZERO
         cf['magzp']     = fd['coadd_magzp']
 
         cf['srclist'] = self._load_srclist()
+
+        if 'psf_flist' in fd:
+            self.psf_data = self._load_psf_data(cf)
+        else:
+            self.psf_data = None
 
         # In this case, we can use refband==input band, since
         # not using a db query or anything
@@ -193,11 +202,14 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         srclist=self._load_source_image_info()
         nepoch = len(srclist)
 
+        fd = self.file_dict
+
         if nepoch > 0:
 
             # now add in the other file types
             bkg_info=self._read_generic_flist('bkg_flist')
             seg_info=self._read_generic_flist('seg_flist')
+
 
             if len(bkg_info) != nepoch:
                 raise ValueError("bkg list has %d elements, source image "
@@ -206,13 +218,59 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                 raise ValueError("seg list has %d elements, source image "
                                  "list has %d elements" % (len(seg_info),nepoch))
 
+            if 'psf_flist' in fd:
+                assert 'coadd_psf_url' in fd, \
+                        'coadd_psf_url must be set of SE psfs are set'
+
+                psf_info=self._read_generic_flist('psf_flist')
+
+                if len(psf_info) != nepoch:
+                    raise ValueError("psf list has %d elements, source image "
+                                     "list has %d elements" % (len(psf_info),nepoch))
+
             for i,src in enumerate(srclist):
                 src['red_bkg'] = bkg_info[i]
                 src['red_seg'] = seg_info[i]
 
+                if 'psf_flist' in fd:
+                    src['red_psf'] = psf_info[i]
+
             self._verify_src_info(srclist)
 
         return srclist
+
+    def _load_psf_data(self, cf):
+        """
+        load all psfs into a list
+        """
+
+        print('loading psf data')
+        assert 'coadd_psf_url' in self.file_dict, \
+            'you must set both coadd_psf_url and psf_flist'
+
+        assert self['psf_type'] == 'psfex', \
+                'only psf_type == "psfex" supported'
+
+        flist = [cf['psf_url']]
+        flist = flist + [src['red_psf'] for src in cf['srclist'] ]
+
+        psf_data = []
+        
+        for f in flist:
+            psf = self._load_one_psf(f)
+
+            psf_data.append( psf )
+
+        return psf_data
+
+    def _load_one_psf(self, f):
+        """
+        load a single psf
+        """
+        import psfex
+        psf = psfex.PSFEx(f)
+        return psf
+
 
     def _verify_src_info(self, srclist):
         """
@@ -235,6 +293,13 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
             assert rs[2] == bs[2],"ccds don't match"
             assert rs[2] == ss[2],"ccds don't match"
+
+            if 'psf_flist' in self.file_dict:
+                ps = os.path.basename(src['red_psf']).split('_')
+                assert rs[0] == ps[0],"psf exp ids don't match"
+                assert rs[1] == ps[1],"psf bands don't match"
+                assert rs[2] == ps[2],"psf ccds don't match"
+
 
     def _read_generic_flist(self, key):
         """
@@ -291,6 +356,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
     def _load_src_info_fromfile(self, finalcut_flist):
         print('reading finalcut info from:',finalcut_flist)
+        print('using ohead files for the wcs')
         src_info = []
 
         with open(finalcut_flist) as fobj:
