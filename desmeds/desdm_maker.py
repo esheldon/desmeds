@@ -268,6 +268,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         load a single psf
         """
         import psfex
+        print('loading psfex data:',f)
         psf = psfex.PSFEx(f)
         return psf
 
