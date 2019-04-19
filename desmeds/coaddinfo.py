@@ -601,8 +601,8 @@ select
     id
 from
     -- coadd_object
-    prod.COADD_OBJECT_SAVE
-    -- prod.COADD_OBJECT
+    -- prod.COADD_OBJECT_SAVE
+    prod.COADD_OBJECT
 where
     filename='%s'
 order by
