@@ -38,7 +38,10 @@ class CoaddSrc(Coadd):
         get info for the specified tilename and band
         """
 
-        query = _QUERY_COADD_SRC_BYTILE % self
+        if 'Y5' in self['campaign']:
+            query = _QUERY_COADD_SRC_BYTILE_Y5 % self
+        else:
+            query = _QUERY_COADD_SRC_BYTILE_Y3 % self
 
         print(query)
         conn = self.get_conn()
@@ -136,6 +139,8 @@ class CoaddSrc(Coadd):
             self['finalcut_campaign']='Y3A1_FINALCUT'
         elif self['campaign']=='Y3A2_COADD':
             self['finalcut_campaign']='Y3A1_FINALCUT'
+        elif self['campaign']=='Y5A1_COADD':
+            self['finalcut_campaign']='Y5A1_FINALCUT'
         else:
             raise ValueError("determine finalcut campaign "
                              "for '%s'" % self['campaign'])
@@ -355,7 +360,39 @@ where
     -- and rownum < 1000
 """
 
-_QUERY_COADD_SRC_BYTILE="""
+_QUERY_COADD_SRC_BYTILE_Y5="""
+select
+    i.tilename,
+    fai.path,
+    j.filename as filename,
+    fai.compression,
+    j.band as band,
+    i.pfw_attempt_id,
+    i.mag_zero as magzp
+from
+    image i,
+    image j,
+    proctag tme,
+    proctag tse,
+    file_archive_info fai
+where
+    tme.tag='%(campaign)s'
+    and tme.pfw_attempt_id=i.pfw_attempt_id
+    and i.filetype='coadd_nwgint'
+    and i.tilename='%(tilename)s'
+    and i.expnum=j.expnum
+    and i.ccdnum=j.ccdnum
+    and j.filetype='red_immask'
+    and j.pfw_attempt_id=tse.pfw_attempt_id
+    and j.band='%(band)s'
+    and tse.tag='%(finalcut_campaign)s'
+    and fai.filename=j.filename
+order by
+    filename
+"""
+
+
+_QUERY_COADD_SRC_BYTILE_Y3="""
 select
     i.tilename,
     fai.path,
@@ -375,12 +412,12 @@ where
     tme.tag='%(campaign)s'
     and tme.pfw_attempt_id=i.pfw_attempt_id
     and i.filetype='coadd_nwgint'
+    and i.band='%(band)s'
     and i.tilename='%(tilename)s'
     and i.expnum=j.expnum
     and i.ccdnum=j.ccdnum
     and j.filetype='red_immask'
     and j.pfw_attempt_id=tse.pfw_attempt_id
-    and j.band='%(band)s'
     and tse.tag='%(finalcut_campaign)s'
     and fai.filename=j.filename
     and z.imagename = j.filename
