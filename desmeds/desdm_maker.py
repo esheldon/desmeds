@@ -767,7 +767,8 @@ class Preparator(dict):
 
         print("writing file config:",fname)
         with open(fname,'w') as fobj:
-            for key,value in output.iteritems():
+            for key in output:
+                value = output[key]
                 if key=="coadd_magzp":
                     value = '%.16g' % value
 
