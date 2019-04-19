@@ -1264,7 +1264,7 @@ def get_desdm_objmap(medsconf, tilename, band):
 def try_remove_timeout(fname, ntry=2, sleep_time=2):
     import time
     
-    for i in xrange(ntry):
+    for i in range(ntry):
         try:
             os.remove(fname)
             break
