@@ -142,9 +142,12 @@ def read_meds_config(medsconf):
     with open(fname) as fobj:
         data=yaml.load(fobj)
 
-    if data['medsconf'] != vers:
-        raise ValueError("version mismatch: found '%s' rather "
-                         "than '%s'" % (data['medsconf'], vers))
+    if 'medsconf' not in data:
+        data['medsconf'] = vers
+    else:
+        if data['medsconf'] != vers:
+            raise ValueError("version mismatch: found '%s' rather "
+                             "than '%s'" % (data['medsconf'], vers))
     return data
 
 def read_tileset(tileset):
