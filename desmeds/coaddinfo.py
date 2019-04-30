@@ -77,7 +77,7 @@ class Coadd(dict):
             files.try_remove_timeout(self['flist_file'])
 
         return info
-        
+
     def clean(self):
         """
         remove downloaded files for the specified tile and band
@@ -107,7 +107,7 @@ class Coadd(dict):
         return _OBJECT_MAP_QUERY % filename
 
     def _get_objmap_dtype(self):
-        return [ 
+        return [
             ('object_number','i4'),
             ('id','i8'),
         ]
@@ -123,7 +123,7 @@ class Coadd(dict):
         """
         get info for the specified tilename and band
         """
-        
+
         query = _QUERY_COADD_TEMPLATE_BYTILE % self
 
         print(query)
@@ -174,6 +174,15 @@ class Coadd(dict):
             info['filename'].replace('.fits','_psfcat.psf'),
         )
 
+        info['image_ext'] = 'sci'
+
+        info['weight_path'] = info['image_path']
+        info['weight_ext'] = 'wgt'
+
+        info['bmask_path'] = info['image_path']
+        info['bmask_ext'] = 'msk'
+
+        info['seg_ext'] = 'sci'
 
     def _get_download_flist(self, info, no_prefix=False):
         """
@@ -185,7 +194,7 @@ class Coadd(dict):
             The info dict for this tile/band, possibly including
             the src_info
 
-        no_prefix: bool 
+        no_prefix: bool
             If True, the {source_dir} is removed from the front
         """
         source_dir=self['source_dir']
@@ -367,7 +376,7 @@ class CoaddCache(object):
         """
         get info for the specified tilename and band
         """
-        
+
         query = _QUERY_COADD_TEMPLATE_BYTILE.format(
             campaign=self.campaign,
             tilename=tilename,
@@ -486,7 +495,7 @@ class CoaddCache(object):
         fitsio.write(fname, info, clobber=True)
 
     def _get_dtype(self):
-        return [ 
+        return [
             ('key','S14'),
             ('tilename','S12'),
             ('path','S65'),
@@ -498,7 +507,7 @@ class CoaddCache(object):
         ]
 
     def _get_objmap_dtype(self):
-        return [ 
+        return [
             ('object_number','i4'),
             ('id','i8'),
         ]
@@ -592,7 +601,7 @@ _DOWNLOAD_CMD = r"""
         --password-file $DES_RSYNC_PASSFILE \
         --files-from=%(flist_file)s \
         %(userstring)s${DESREMOTE_RSYNC}/ \
-        %(source_dir)s/ 
+        %(source_dir)s/
 """
 
 _OBJECT_MAP_QUERY = """

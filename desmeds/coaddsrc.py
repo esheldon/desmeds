@@ -97,6 +97,15 @@ class CoaddSrc(Coadd):
                 info['filename'].replace('immasked.fits','psfexcat.psf')
             )
 
+            info['image_ext'] = 'sci'
+
+            info['weight_path'] = info['image_path']
+            info['weight_ext'] = 'wgt'
+
+            info['bmask_path'] = info['image_path']
+            info['bmask_ext'] = 'msk'
+
+            info['bkg_ext'] = 'sci'
 
     def _get_all_dirs(self, info):
         dirs={}
@@ -453,7 +462,7 @@ from
     image j,
     proctag tme,
     proctag tse,
-    file_archive_info fai 
+    file_archive_info fai
 where
     tme.tag='{campaign}'
     and tme.pfw_attempt_id=i.pfw_attempt_id
@@ -467,6 +476,3 @@ where
     and fai.filename=j.filename
     --and rownum < 1000
 """
-
-
-
