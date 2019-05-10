@@ -360,7 +360,7 @@ where
     -- and rownum < 1000
 """
 
-_QUERY_COADD_SRC_BYTILE_Y5="""
+_QUERY_COADD_SRC_BYTILE_Y5_old="""
 select
     i.tilename,
     fai.path,
@@ -380,17 +380,50 @@ where
     and tme.pfw_attempt_id=i.pfw_attempt_id
     and i.filetype='coadd_nwgint'
     and i.tilename='%(tilename)s'
+    and i.band='%(band)s'
     and i.expnum=j.expnum
     and i.ccdnum=j.ccdnum
     and j.filetype='red_immask'
     and j.pfw_attempt_id=tse.pfw_attempt_id
-    and j.band='%(band)s'
     and tse.tag='%(finalcut_campaign)s'
     and fai.filename=j.filename
 order by
     filename
 """
 
+_QUERY_COADD_SRC_BYTILE_Y5="""
+select
+    i.tilename,
+    fai.path,
+    j.filename as filename,
+    fai.compression,
+    j.band as band,
+    i.pfw_attempt_id,
+    i.mag_zero as magzp
+from
+    image i,
+    image j,
+    proctag tme,
+    pfw_attempt_val av,
+    proctag tse,
+    file_archive_info fai
+where
+    tme.tag='%(campaign)s'
+    and tme.pfw_attempt_id=av.pfw_attempt_id
+    and av.key='tilename'
+    and av.val='%(tilename)s'
+    and av.pfw_attempt_id=i.pfw_attempt_id
+    and i.filetype='coadd_nwgint'
+    and i.band='%(band)s'
+    and i.expnum=j.expnum
+    and i.ccdnum=j.ccdnum
+    and j.filetype='red_immask'
+    and j.pfw_attempt_id=tse.pfw_attempt_id
+    and tse.tag='%(finalcut_campaign)s'
+    and fai.filename=j.filename
+order by
+    filename
+"""
 
 _QUERY_COADD_SRC_BYTILE_Y3="""
 select
