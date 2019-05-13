@@ -51,9 +51,11 @@ class CoaddSrc(Coadd):
         info_list=[]
 
         for row in curs:
-            tile,path,fname,comp,band,pai,magzp = row
+            tile,expnum,ccdnum,path,fname,comp,band,pai,magzp = row
             info = {
                 'tilename':tile,
+                'expnum':expnum,
+                'ccdnum':ccdnum,
                 'filename':fname,
                 'compression':comp,
                 'path':path,
@@ -394,6 +396,8 @@ order by
 _QUERY_COADD_SRC_BYTILE_Y5="""
 select
     i.tilename,
+    i.expnum,
+    i.ccdnum,
     fai.path,
     j.filename as filename,
     fai.compression,
@@ -428,6 +432,8 @@ order by
 _QUERY_COADD_SRC_BYTILE_Y3="""
 select
     i.tilename,
+    i.expnum,
+    i.ccdnum,
     fai.path,
     j.filename as filename,
     fai.compression,
