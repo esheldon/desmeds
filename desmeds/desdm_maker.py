@@ -1,14 +1,13 @@
 from __future__ import print_function
 import os
-from os.path import basename
+from os.path import basename, expandvars
 import numpy
-from numpy import zeros, sqrt, log, vstack, array
+from numpy import zeros, sqrt, log
 import subprocess
 import shutil
 import yaml
 
 import fitsio
-import esutil as eu
 
 import meds
 from meds.util import (
@@ -180,6 +179,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         """
 
         fname=self.file_dict['coadd_cat_url']
+        fname = expandvars(fname)
 
         print('reading coadd cat:',fname)
         self.coadd_cat = fitsio.read(fname, lower=True)
@@ -282,9 +282,9 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         D00502664_r_c36_r2378p01_segmap.fits.fz
         """
         for src in srclist:
-            rs = os.path.basename(src['red_image']).split('_')
-            bs = os.path.basename(src['red_bkg']).split('_')
-            ss = os.path.basename(src['red_seg']).split('_')
+            rs = basename(src['red_image']).split('_')
+            bs = basename(src['red_bkg']).split('_')
+            ss = basename(src['red_seg']).split('_')
 
             assert rs[0] == bs[0],"exp ids don't match"
             assert rs[0] == ss[0],"exp ids don't match"
@@ -296,7 +296,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             assert rs[2] == ss[2],"ccds don't match"
 
             if 'psf_flist' in self.file_dict:
-                ps = os.path.basename(src['red_psf']).split('_')
+                ps = basename(src['red_psf']).split('_')
                 assert rs[0] == ps[0],"psf exp ids don't match"
                 assert rs[1] == ps[1],"psf bands don't match"
                 assert rs[2] == ps[2],"psf ccds don't match"
@@ -306,7 +306,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         """
         read a list of file paths, one per line
         """
-        fname=self.file_dict[key]
+        fname=expandvars(self.file_dict[key])
         print("reading:",key,'from:',fname)
 
         flist=[]
@@ -356,6 +356,8 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         return res
 
     def _load_src_info_fromfile(self, finalcut_flist):
+        finalcut_flist = expandvars(finalcut_flist)
+
         print('reading finalcut info from:',finalcut_flist)
         print('using ohead files for the wcs')
         src_info = []
@@ -363,10 +365,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         with open(finalcut_flist) as fobj:
             for line in fobj:
                 ls = line.split()
-                red_path=ls[0]
-                ohead_path=ls[1]
+
+                red_path = expandvars(ls[0])
+                ohead_path = expandvars(ls[1])
                 magzp=float(ls[2])
-                #magzp=30.0
 
                 img_hdr = fitsio.read_header(red_path, ext=self['se_image_ext'])
                 wcs_hdr = fitsio.read_scamp_head(ohead_path)
@@ -398,6 +400,8 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             self.file_dict['tilename'],
             self.file_dict['band'],
         )
+        fname = expandvars(fname)
+
         print("reading full coaddinfo:",fname)
         with open(fname) as fobj:
             ci = yaml.load(fobj)
@@ -413,7 +417,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         for s in ci['src_info']:
 
-            path=s[entry]
+            path = expandvars(s[entry])
 
             sid = self._get_filename_as_id(path)
 
@@ -421,7 +425,8 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
             if self['use_astro_refine']:
                 img_hdr = fitsio.read_header(path, ext=self['se_image_ext'])
-                wcs_hdr = fitsio.read_scamp_head(s['head_path'])
+                head_path = expandvars(s['head_path'])
+                wcs_hdr = fitsio.read_scamp_head(head_path)
                 wcs_hdr = util.add_naxis_to_fitsio_header(wcs_hdr,img_hdr)
             else:
                 wcs_hdr = fitsio.read_header(path, ext=self['se_image_ext'])
@@ -454,12 +459,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         nobj=self.coadd_cat.size
 
-        iddata=numpy.zeros(nobj, dtype=dt)
+        iddata=zeros(nobj, dtype=dt)
 
-        idmap = fitsio.read(
-            self.file_dict['coadd_object_map'],
-            lower=True,
-        )
+        fname = expandvars(self.file_dict['coadd_object_map'])
+        idmap = fitsio.read(fname, lower=True)
 
         s=numpy.argsort(idmap['object_number'])
 
@@ -642,6 +645,7 @@ class Preparator(dict):
             self['tilename'],
             self['band'],
         )
+        fname = expandvars(fname)
         if not os.path.exists(fname):
 
             dir=os.path.dirname(fname)
@@ -656,28 +660,28 @@ class Preparator(dict):
             fitsio.write(fname, objmap, extname='OBJECTS',clobber=True)
 
     def _write_finalcut_flist(self, src_info, fileconf):
-        fname=fileconf['finalcut_flist']
+        fname = expandvars(fileconf['finalcut_flist'])
         print("writing:",fname)
         with open(fname, 'w') as fobj:
             for sinfo in src_info:
                 fobj.write("%s %.16g\n" % (sinfo['image_path'], sinfo['magzp'] ))
 
     def _write_nullwt_flist(self, src_info, fileconf):
-        fname=fileconf['nwgint_flist']
+        fname = expandvars(fileconf['nwgint_flist'])
         print("writing:",fname)
         with open(fname, 'w') as fobj:
             for sinfo in src_info:
                 fobj.write("%s %.16g\n" % (sinfo['nullwt_path'], sinfo['magzp'] ))
 
     def _write_seg_flist(self, src_info, fileconf):
-        fname=fileconf['seg_flist']
+        fname = expandvars(fileconf['seg_flist'])
         print("writing:",fname)
         with open(fname, 'w') as fobj:
             for sinfo in src_info:
                 fobj.write("%s\n" % sinfo['seg_path'])
 
     def _write_bkg_flist(self, src_info, fileconf):
-        fname=fileconf['bkg_flist']
+        fname = expandvars(fileconf['bkg_flist'])
         print("writing:",fname)
         with open(fname, 'w') as fobj:
             for sinfo in src_info:
@@ -689,6 +693,8 @@ class Preparator(dict):
             self['tilename'],
             self['band'],
         )
+        fname = expandvars(fname)
+
         print("writing full coaddinfo:",fname)
         with open(fname,'w') as fobj:
             yaml.dump(info, fobj)
@@ -700,6 +706,7 @@ class Preparator(dict):
             self['tilename'],
             self['band'],
         )
+        fname = expandvars(fname)
 
         finalcut_flist=files.get_desdm_finalcut_flist(
             self['medsconf'],
@@ -812,18 +819,24 @@ class Preparator(dict):
 
         medsdir=files.get_meds_base()
 
-        psf_dir=self['psf_dir']
+        psf_dir = expandvars(self['psf_dir'])
+
         if not os.path.exists(psf_dir):
             print("making directory:",psf_dir)
             os.makedirs(psf_dir)
 
-        print("writing psfmap:",self['psfmap_file'])
-        with open(self['psfmap_file'],'w') as psfmap_fobj:
+        psfmap_file = expandvars(self['psfmap_file'])
+
+        print("writing psfmap:",psfmap_file)
+        with open(psfmap_file,'w') as psfmap_fobj:
             print("copying psf files")
 
             psfs = self._get_psf_list(info)
             for psf_file in psfs:
-                bname=os.path.basename(psf_file)
+
+                psf_file = expandvars(psf_file)
+
+                bname=basename(psf_file)
                 ofile = os.path.join(psf_dir, bname)
 
                 fs=bname.split('_')

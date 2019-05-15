@@ -56,9 +56,10 @@ class Coadd(dict):
         download sources for a single tile and band
         """
 
-        if not os.path.exists(self['source_dir']):
-            print("making source dir:",self['source_dir'])
-            os.makedirs(self['source_dir'])
+        full_dir = os.path.expandvars(self['source_dir'])
+        if not os.path.exists(full_dir):
+            print("making source dir:",full_dir)
+            os.makedirs(full_dir)
 
         info=self.get_info()
 
@@ -188,10 +189,11 @@ class Coadd(dict):
         no_prefix: bool 
             If True, the {source_dir} is removed from the front
         """
+        #source_dir=os.path.expandvars(self['source_dir'])
         source_dir=self['source_dir']
 
         if source_dir[-1] != '/':
-            source_dir += '/'
+            source_dir = source_dir + '/'
 
         types=self._get_download_types()
         stypes=self._get_source_download_types()
@@ -218,7 +220,6 @@ class Coadd(dict):
                         fname = fname.replace(source_dir, '')
 
                     flist.append(fname)
-
 
         return flist
 
@@ -315,7 +316,7 @@ class Coadd(dict):
         local_dir = '%s/%s' % (self['source_dir'], path)
         remote_dir = '$DESREMOTE_RSYNC/%s' % path
 
-        local_dir=os.path.expandvars(local_dir)
+        #local_dir=os.path.expandvars(local_dir)
         remote_dir=os.path.expandvars(remote_dir)
 
         if type is not None:
@@ -344,202 +345,6 @@ class Coadd(dict):
 
         ps[-1] = type
         return '/'.join(ps)
-
-
-'''
-class CoaddCache(object):
-    """
-    cache to hold path info for the coadds
-    """
-    def __init__(self, campaign='Y3A1_COADD'):
-        self.campaign=campaign.upper()
-
-    def get_data(self):
-        """
-        get the full cache data
-        """
-        if not hasattr(self,'_cache'):
-            self.load_cache()
-
-        return self._cache
-
-    def get_info(self, tilename, band):
-        """
-        get info for the specified tilename and band
-        """
-        
-        query = _QUERY_COADD_TEMPLATE_BYTILE.format(
-            campaign=self.campaign,
-            tilename=tilename,
-            band=band,
-        )
-
-        print(query)
-        conn=self.get_conn()
-        curs = conn.cursor()
-        curs.execute(query)
-
-        c=curs.fetchall()
-
-        tile,path,fname,comp,band,pai = c[0]
-
-        entry = {
-            'tilename':tile,
-            'filename':fname,
-            'compression':comp,
-            'path':path,
-            'band':band,
-            'pfw_attempt_id':pai,
-
-            # need to add this to the cache?  should always
-            # be the same...
-            'magzp': 30.0,
-        }
-
-        return entry
-
-    def get_info_old(self, tilename, band='i'):
-        """
-        get info for the specified tilename and band
-        """
-
-        cache = self.get_data()
-
-        key = make_cache_key(tilename, band)
-        w,=numpy.where(cache['key'] == key)
-        if w.size == 0:
-            raise ValueError("%s not found in cache" % key)
-
-        c=cache[w[0]]
-
-        tilename=c['tilename'].strip()
-        path=c['path'].strip()
-        filename=c['filename'].strip()
-        band=c['band'].strip()
-        comp=c['compression'].strip()
-
-        entry = {
-            'tilename':tilename,
-            'filename':filename,
-            'compression':comp,
-            'path':path,
-            'band':band,
-            'pfw_attempt_id':c['pfw_attempt_id'],
-
-            # need to add this to the cache?  should always
-            # be the same...
-            'magzp': 30.0,
-        }
-
-        return entry
-
-
-    def get_objmap(self, info):
-        """
-        get the mapping between OBJECT_NUMBER and ID
-        """
-        query=self._get_objmap_query(info)
-        print(query)
-
-        conn = self.get_conn()
-        curs = conn.cursor()
-        curs.execute(query)
-
-        dtype=self._get_objmap_dtype()
-        return numpy.fromiter(curs,dtype=dtype)
-
-    def _get_objmap_query(self, info):
-        #return _OBJECT_MAP_QUERY
-        filename=os.path.basename(info['cat_path'])
-        #filename=os.path.basename(info['filename'])
-        return _OBJECT_MAP_QUERY % filename
-
-    def load_cache(self):
-        """
-        load the cache into memory
-        """
-
-        fname=self.get_filename()
-        if not os.path.join(fname):
-            self.make_cache()
-
-        print("loading cache:",fname)
-        self._cache = fitsio.read(fname)
-
-    def make_cache(self):
-        """
-        cache all the relevant information for this campaign
-        """
-
-        fname=self.get_filename()
-
-        print("writing to:",fname)
-        query = self._get_query()
-        curs = self._doquery(query)
-
-        dt=self._get_dtype()
-
-        info=numpy.fromiter(curs, dtype=dt)
-
-
-        print("writing to:",fname)
-        fitsio.write(fname, info, clobber=True)
-
-    def _get_dtype(self):
-        return [ 
-            ('key','S14'),
-            ('tilename','S12'),
-            ('path','S65'),
-            ('filename','S40'),
-            ('compression','S3'),
-            ('band','S1'),
-            ('pfw_attempt_id','i8'),
-
-        ]
-
-    def _get_objmap_dtype(self):
-        return [ 
-            ('object_number','i4'),
-            ('id','i8'),
-        ]
-
-
-    def get_filename(self):
-        """
-        path to the cache
-        """
-        return files.get_coadd_cache_file(self.campaign)
-
-    def _doquery(self, query):
-
-        print(query)
-        conn=self.get_conn()
-        curs = conn.cursor()
-        curs.execute(query)
-
-        return curs
-
-    def _get_query(self):
-        query = _QUERY_COADD_TEMPLATE.format(
-            campaign=self.campaign,
-        )
-        return query
-
-    def get_conn(self):
-        if not hasattr(self, '_conn'):
-            self._make_conn()
-
-        return self._conn
-
-    def _make_conn(self):
-        import easyaccess as ea
-        self._conn=ea.connect(section='desoper')
-
-
-def make_cache_key(tilename, band):
-    return '%s-%s' % (tilename, band)
-
-'''
 
 
 _QUERY_COADD_TEMPLATE="""

@@ -216,10 +216,15 @@ def get_meds_base():
     """
     The base directory $DESDATA/meds
     """
+
+    """
     dir = os.environ['MEDS_DIR']
     if dir[-1] == '/':
         dir = dir[0:-1]
     return dir
+    """
+
+    return '$MEDS_DIR'
 
 
 def get_meds_dir(medsconf, tilename):
