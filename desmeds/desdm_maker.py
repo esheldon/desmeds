@@ -60,9 +60,9 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                  fileconf,
                  tmpdir=None):
 
-        self.medsconf=medsconf
-        self.fileconf=fileconf
-        self.tmpdir=tmpdir
+        self.medsconf = medsconf
+        self.fileconf = fileconf
+        self.tmpdir = tmpdir
 
         self._load_config(medsconf)
         self._load_file_config(fileconf)
@@ -83,7 +83,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         write the data using the MEDSMaker
         """
 
-        maker=meds.MEDSMaker(
+        maker = meds.MEDSMaker(
             self.obj_data,
             self.image_info,
             config=self,
@@ -92,15 +92,15 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         )
 
         if fname is None:
-            fname=self.file_dict['meds_url']
+            fname = self.file_dict['meds_url']
 
-        print("writing MEDS file:",fname)
+        print("writing MEDS file:", fname)
 
         # this will do nothing if tmpdir is None; sf.path will
         # in fact equal fname and no move is performed
 
-        if self.tmpdir  is not None:
-            with StagedOutFile(fname,tmpdir=self.tmpdir) as sf:
+        if self.tmpdir is not None:
+            with StagedOutFile(fname, tmpdir=self.tmpdir) as sf:
                 if sf.path[-8:] == '.fits.fz':
                     self._write_and_fpack(maker, sf.path)
                 else:
@@ -115,7 +115,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         """
         for y3 using string ids
         """
-        image_id_len=len(self.cf['image_id'])
+        image_id_len = len(self.cf['image_id'])
 
         for s in srclist:
             tlen = len(s['id'])
@@ -131,20 +131,20 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         """
         print('getting coadd info and source list')
 
-        fd=self.file_dict
-        cf={}
+        fd = self.file_dict
+        cf = {}
 
         iid = self._get_filename_as_id(fd['coadd_image_url'])
 
         cf['image_url'] = fd['coadd_image_url']
-        cf['seg_url']   = fd['coadd_seg_url']
-        cf['image_id']  = iid
+        cf['seg_url'] = fd['coadd_seg_url']
+        cf['image_id'] = iid
 
         if 'coadd_psf_url' in fd:
             cf['psf_url'] = fd['coadd_psf_url']
 
         # probably from from header MAGZERO
-        cf['magzp']     = fd['coadd_magzp']
+        cf['magzp'] = fd['coadd_magzp']
 
         cf['srclist'] = self._load_srclist()
 
@@ -155,8 +155,8 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         # In this case, we can use refband==input band, since
         # not using a db query or anything
-        self.cf=cf
-        self.cf_refband=cf
+        self.cf = cf
+        self.cf_refband = cf
 
     def _read_coadd_cat(self):
         """
@@ -164,10 +164,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         should already be the case)
         """
 
-        fname=self.file_dict['coadd_cat_url']
+        fname = self.file_dict['coadd_cat_url']
         fname = expandvars(fname)
 
-        print('reading coadd cat:',fname)
+        print('reading coadd cat:', fname)
         self.coadd_cat = fitsio.read(fname, lower=True)
 
         # sort just in case, not needed ever AFIK
@@ -185,7 +185,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         get all the necessary information for each source image
         """
         # this is a list of dicts
-        srclist=self._load_source_image_info()
+        srclist = self._load_source_image_info()
         nepoch = len(srclist)
 
         fd = self.file_dict
@@ -193,28 +193,33 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         if nepoch > 0:
 
             # now add in the other file types
-            bkg_info=self._read_generic_flist('bkg_flist')
-            seg_info=self._read_generic_flist('seg_flist')
-
+            bkg_info = self._read_generic_flist('bkg_flist')
+            seg_info = self._read_generic_flist('seg_flist')
 
             if len(bkg_info) != nepoch:
-                raise ValueError("bkg list has %d elements, source image "
-                                 "list has %d elements" % (len(bkg_info),nepoch))
+                raise ValueError(
+                    "bkg list has %d elements, source image "
+                    "list has %d elements" % (len(bkg_info), nepoch)
+                )
             if len(seg_info) != nepoch:
-                raise ValueError("seg list has %d elements, source image "
-                                 "list has %d elements" % (len(seg_info),nepoch))
+                raise ValueError(
+                    "seg list has %d elements, source image "
+                    "list has %d elements" % (len(seg_info), nepoch)
+                )
 
             if 'psf_flist' in fd:
                 assert 'coadd_psf_url' in fd, \
                         'coadd_psf_url must be set of SE psfs are set'
 
-                psf_info=self._read_generic_flist('psf_flist')
+                psf_info = self._read_generic_flist('psf_flist')
 
                 if len(psf_info) != nepoch:
-                    raise ValueError("psf list has %d elements, source image "
-                                     "list has %d elements" % (len(psf_info),nepoch))
+                    raise ValueError(
+                        "psf list has %d elements, source image "
+                        "list has %d elements" % (len(psf_info), nepoch)
+                    )
 
-            for i,src in enumerate(srclist):
+            for i, src in enumerate(srclist):
                 src['red_bkg'] = bkg_info[i]
                 src['red_seg'] = seg_info[i]
 
@@ -235,17 +240,17 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             'you must set both coadd_psf_url and psf_flist'
 
         assert self['psf_type'] == 'psfex', \
-                'only psf_type == "psfex" supported'
+            'only psf_type == "psfex" supported'
 
         flist = [cf['psf_url']]
-        flist = flist + [src['red_psf'] for src in cf['srclist'] ]
+        flist = flist + [src['red_psf'] for src in cf['srclist']]
 
         psf_data = []
-        
+
         for f in flist:
             psf = self._load_one_psf(f)
 
-            psf_data.append( psf )
+            psf_data.append(psf)
 
         return psf_data
 
@@ -254,10 +259,9 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         load a single psf
         """
         import psfex
-        print('loading psfex data:',f)
+        print('loading psfex data:', f)
         psf = psfex.PSFEx(f)
         return psf
-
 
     def _verify_src_info(self, srclist):
         """
@@ -272,34 +276,33 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             bs = basename(src['red_bkg']).split('_')
             ss = basename(src['red_seg']).split('_')
 
-            assert rs[0] == bs[0],"exp ids don't match"
-            assert rs[0] == ss[0],"exp ids don't match"
+            assert rs[0] == bs[0], "exp ids don't match"
+            assert rs[0] == ss[0], "exp ids don't match"
 
-            assert rs[1] == bs[1],"bands don't match"
-            assert rs[1] == ss[1],"bands don't match"
+            assert rs[1] == bs[1], "bands don't match"
+            assert rs[1] == ss[1], "bands don't match"
 
-            assert rs[2] == bs[2],"ccds don't match"
-            assert rs[2] == ss[2],"ccds don't match"
+            assert rs[2] == bs[2], "ccds don't match"
+            assert rs[2] == ss[2], "ccds don't match"
 
             if 'psf_flist' in self.file_dict:
                 ps = basename(src['red_psf']).split('_')
-                assert rs[0] == ps[0],"psf exp ids don't match"
-                assert rs[1] == ps[1],"psf bands don't match"
-                assert rs[2] == ps[2],"psf ccds don't match"
-
+                assert rs[0] == ps[0], "psf exp ids don't match"
+                assert rs[1] == ps[1], "psf bands don't match"
+                assert rs[2] == ps[2], "psf ccds don't match"
 
     def _read_generic_flist(self, key):
         """
         read a list of file paths, one per line
         """
-        fname=expandvars(self.file_dict[key])
-        print("reading:",key,'from:',fname)
+        fname = expandvars(self.file_dict[key])
+        print("reading:", key, 'from:', fname)
 
-        flist=[]
+        flist = []
         with open(fname) as fobj:
             for line in fobj:
-                line=line.strip()
-                if line=='':
+                line = line.strip()
+                if line == '':
                     continue
 
                 flist.append(line)
@@ -307,44 +310,49 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
     def _extract_source_image_line(self, line):
         """
-        the source image lines are 
+        the source image lines are
             path magzp
         """
-        line=line.strip()
-        if line=='':
-            return None,None
+        line = line.strip()
+        if line == '':
+            return None, None
 
-        ls=line.split()
+        ls = line.split()
         if len(ls) != 2:
             raise ValueError("got %d elements for line in "
                              "source image list: '%s'" % line)
 
-        path=ls[0]
-        magzp=float(ls[1])
+        path = ls[0]
+        magzp = float(ls[1])
 
         return path, magzp
 
     def _load_source_image_info(self):
 
         # for coadd-only this should be set to False
-        have_se_images=self.file_dict.get('have_se_images',True)
+        have_se_images = self.file_dict.get('have_se_images', True)
         if not have_se_images:
-            res=[]
+            res = []
 
         elif 'finalcut_flist' in self.file_dict:
-            assert self['source_type']=='finalcut','source type should be finalcut'
-            assert self['use_astro_refine'] is True,'use_astro_refine should be True'
-            res=self._load_src_info_fromfile(self.file_dict['finalcut_flist'])
+            assert self['source_type'] == 'finalcut', \
+                'source type should be finalcut'
+            assert self['use_astro_refine'] is True,\
+                'use_astro_refine should be True'
+
+            res = self._load_src_info_fromfile(
+                self.file_dict['finalcut_flist'],
+            )
 
         else:
-            res=self._load_source_image_info_fromdb()
+            res = self._load_source_image_info_fromdb()
 
         return res
 
     def _load_src_info_fromfile(self, finalcut_flist):
         finalcut_flist = expandvars(finalcut_flist)
 
-        print('reading finalcut info from:',finalcut_flist)
+        print('reading finalcut info from:', finalcut_flist)
         print('using ohead files for the wcs')
         src_info = []
 
@@ -354,25 +362,27 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
                 red_path = expandvars(ls[0])
                 ohead_path = expandvars(ls[1])
-                magzp=float(ls[2])
+                magzp = float(ls[2])
 
-                img_hdr = fitsio.read_header(red_path, ext=self['se_image_ext'])
+                img_hdr = fitsio.read_header(
+                    red_path,
+                    ext=self['se_image_ext'],
+                )
                 wcs_hdr = fitsio.read_scamp_head(ohead_path)
-                wcs_hdr = util.add_naxis_to_fitsio_header(wcs_hdr,img_hdr)
+                wcs_hdr = util.add_naxis_to_fitsio_header(wcs_hdr, img_hdr)
 
                 sid = self._get_filename_as_id(red_path)
                 entry = {
-                    'id':sid,
-                    'flags':0,
-                    'red_image':red_path,
-                    'magzp':magzp,
-                    'wcs_header':wcs_hdr,
+                    'id': sid,
+                    'flags': 0,
+                    'red_image': red_path,
+                    'magzp': magzp,
+                    'wcs_header': wcs_hdr,
                 }
 
                 src_info.append(entry)
 
         return src_info
-
 
     def _load_source_image_info_fromdb(self):
         """
@@ -381,25 +391,25 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         """
 
         # read the full coadd info that we dumped to file
-        fname=files.get_coaddinfo_file(
+        fname = files.get_coaddinfo_file(
             self['medsconf'],
             self.file_dict['tilename'],
             self.file_dict['band'],
         )
         fname = expandvars(fname)
 
-        print("reading full coaddinfo:",fname)
+        print("reading full coaddinfo:", fname)
         with open(fname) as fobj:
             ci = yaml.load(fobj)
 
         if self['source_type'] == 'nullwt':
             # refined astrometry already present
-            entry='nullwt_path'
-            self['use_astro_refine']=False
+            entry = 'nullwt_path'
+            self['use_astro_refine'] = False
         else:
-            entry='image_path'
+            entry = 'image_path'
 
-        red_info=[]
+        red_info = []
 
         for s in ci['src_info']:
 
@@ -413,46 +423,43 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                 img_hdr = fitsio.read_header(path, ext=self['se_image_ext'])
                 head_path = expandvars(s['head_path'])
                 wcs_hdr = fitsio.read_scamp_head(head_path)
-                wcs_hdr = util.add_naxis_to_fitsio_header(wcs_hdr,img_hdr)
+                wcs_hdr = util.add_naxis_to_fitsio_header(wcs_hdr, img_hdr)
             else:
                 wcs_hdr = fitsio.read_header(path, ext=self['se_image_ext'])
 
             wcs_hdr = util.fitsio_header_to_dict(wcs_hdr)
-            s={
-                'id':sid,
-                'flags':0,  # assume no problems!
-                'red_image':path,
-                'magzp':s['magzp'],
-                'wcs_header':wcs_hdr,
+            s = {
+                'id': sid,
+                'flags': 0,  # assume no problems!
+                'red_image': path,
+                'magzp': s['magzp'],
+                'wcs_header': wcs_hdr,
             }
 
             red_info.append(s)
 
         return red_info
 
-
-
-
     def _get_coadd_objects_ids(self):
         """
         mock up the query to the database
         """
 
-        dt=[
-            ('object_number','i4'),
-            ('coadd_objects_id','i8')
+        dt = [
+            ('object_number', 'i4'),
+            ('coadd_objects_id', 'i8')
         ]
 
-        nobj=self.coadd_cat.size
+        nobj = self.coadd_cat.size
 
-        iddata=zeros(nobj, dtype=dt)
+        iddata = zeros(nobj, dtype=dt)
 
         fname = expandvars(self.file_dict['coadd_object_map'])
         idmap = fitsio.read(fname, lower=True)
 
-        s=numpy.argsort(idmap['object_number'])
+        s = numpy.argsort(idmap['object_number'])
 
-        iddata['object_number']    = idmap['object_number'][s]
+        iddata['object_number'] = idmap['object_number'][s]
         iddata['coadd_objects_id'] = idmap['id'][s]
 
         return iddata
@@ -476,32 +483,30 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         self.update(default_config)
 
-        if isinstance(medsconf,dict):
-            conf=medsconf
+        if isinstance(medsconf, dict):
+            conf = medsconf
         else:
             with open(medsconf) as fobj:
-                conf=yaml.load( fobj )
+                conf = yaml.load(fobj)
 
-        util.check_for_required_config(conf, ['medsconf','source_type'])
+        util.check_for_required_config(conf, ['medsconf', 'source_type'])
         self.update(conf)
 
-        assert self['source_type'] in ['finalcut','nullwt']
-
+        assert self['source_type'] in ['finalcut', 'nullwt']
 
     def _load_file_config(self, fileconf):
         """
         load the yaml file config
         """
         if isinstance(fileconf, dict):
-            fd=fileconf
+            fd = fileconf
         else:
-            fd=files.read_yaml(fileconf)
+            fd = files.read_yaml(fileconf)
 
-        self.file_dict=fd
-
+        self.file_dict = fd
 
     def _write_and_fpack(self, maker, fname):
-        local_fitsname = fname.path.replace('.fits.fz','.fits')
+        local_fitsname = fname.path.replace('.fits.fz', '.fits')
 
         with TempFile(local_fitsname) as tfile:
             maker.write(tfile.path)
@@ -521,7 +526,7 @@ class Preparator(dict):
     This is not used by DESDM, but is useful for testing
     outside of DESDM
 
-    TODO: 
+    TODO:
         - write psf map file
         - write file config
     """
@@ -529,53 +534,49 @@ class Preparator(dict):
         from .coaddinfo import Coadd
         from .coaddsrc import CoaddSrc
 
-        if isinstance(medsconf,dict):
-            conf=medsconf
+        if isinstance(medsconf, dict):
+            conf = medsconf
         else:
-            conf=files.read_meds_config(medsconf)
+            conf = files.read_meds_config(medsconf)
         self.update(conf)
 
-        self['tilename']=tilename
-        self['band']=band
+        self['tilename'] = tilename
+        self['band'] = band
 
-        csrc=CoaddSrc(
+        csrc = CoaddSrc(
             self['medsconf'],
             self['tilename'],
             self['band'],
             campaign=self['campaign'],
         )
 
-        self.coadd=Coadd(
+        self.coadd = Coadd(
             self['medsconf'],
             self['tilename'],
             self['band'],
             campaign=self['campaign'],
             sources=csrc,
         )
-        self['nullwt_dir']=files.get_nullwt_dir(
+        self['nullwt_dir'] = files.get_nullwt_dir(
             self['medsconf'],
             self['tilename'],
             self['band'],
         )
-        self['psfmap_file']=files.get_psfmap_file(
+        self['psfmap_file'] = files.get_psfmap_file(
             self['medsconf'],
             self['tilename'],
             self['band'],
         )
-        self['psf_dir']=files.get_psf_dir(
+        self['psf_dir'] = files.get_psf_dir(
             self['medsconf'],
             self['tilename'],
             self['band'],
         )
-        self['lists_dir']=files.get_lists_dir(
+        self['lists_dir'] = files.get_lists_dir(
             self['medsconf'],
             self['tilename'],
             self['band'],
         )
-
-
-
-
 
     def go(self):
         """
@@ -590,7 +591,7 @@ class Preparator(dict):
         if self['source_type'] == 'nullwt':
             self._make_nullwt(info)
 
-        fileconf=self._write_file_config(info)
+        fileconf = self._write_file_config(info)
 
         self._write_finalcut_flist(info['src_info'], fileconf)
 
@@ -620,13 +621,11 @@ class Preparator(dict):
         """
         remove all the generated nullwt files
         """
-        print("removing nullwt images:",self['nullwt_dir'])
+        print("removing nullwt images:", self['nullwt_dir'])
         shutil.rmtree(self['nullwt_dir'])
 
-
-
     def _make_objmap(self, info):
-        fname=files.get_desdm_objmap(
+        fname = files.get_desdm_objmap(
             self['medsconf'],
             self['tilename'],
             self['band'],
@@ -634,20 +633,18 @@ class Preparator(dict):
         fname = expandvars(fname)
         if not os.path.exists(fname):
 
-            dir=os.path.dirname(fname)
+            dir = os.path.dirname(fname)
             if not os.path.exists(dir):
-                print("making directory:",dir)
+                print("making directory:", dir)
                 os.makedirs(dir)
 
-            #sources = self.coadd.get_sources()
-            #objmap = sources.cache.get_objmap(info)
             objmap = self.coadd.get_objmap(info)
-            print("writing objmap:",fname)
-            fitsio.write(fname, objmap, extname='OBJECTS',clobber=True)
+            print("writing objmap:", fname)
+            fitsio.write(fname, objmap, extname='OBJECTS', clobber=True)
 
     def _write_finalcut_flist(self, src_info, fileconf):
         fname = expandvars(fileconf['finalcut_flist'])
-        print("writing:",fname)
+        print("writing:", fname)
         with open(fname, 'w') as fobj:
             for sinfo in src_info:
                 stup = (
@@ -659,101 +656,101 @@ class Preparator(dict):
 
     def _write_nullwt_flist(self, src_info, fileconf):
         fname = expandvars(fileconf['nwgint_flist'])
-        print("writing:",fname)
+        print("writing:", fname)
         with open(fname, 'w') as fobj:
             for sinfo in src_info:
-                fobj.write("%s %.16g\n" % (sinfo['nullwt_path'], sinfo['magzp'] ))
+                stup = sinfo['nullwt_path'], sinfo['magzp']
+                fobj.write("%s %.16g\n" % stup)
 
     def _write_seg_flist(self, src_info, fileconf):
         fname = expandvars(fileconf['seg_flist'])
-        print("writing:",fname)
+        print("writing:", fname)
         with open(fname, 'w') as fobj:
             for sinfo in src_info:
                 fobj.write("%s\n" % sinfo['seg_path'])
 
     def _write_bkg_flist(self, src_info, fileconf):
         fname = expandvars(fileconf['bkg_flist'])
-        print("writing:",fname)
+        print("writing:", fname)
         with open(fname, 'w') as fobj:
             for sinfo in src_info:
                 fobj.write("%s\n" % sinfo['bkg_path'])
 
     def _write_coaddinfo(self, info):
-        fname=files.get_coaddinfo_file(
+        fname = files.get_coaddinfo_file(
             self['medsconf'],
             self['tilename'],
             self['band'],
         )
         fname = expandvars(fname)
 
-        print("writing full coaddinfo:",fname)
-        with open(fname,'w') as fobj:
+        print("writing full coaddinfo:", fname)
+        with open(fname, 'w') as fobj:
             yaml.dump(info, fobj)
 
-
     def _write_file_config(self, info):
-        fname=files.get_desdm_file_config(
+        fname = files.get_desdm_file_config(
             self['medsconf'],
             self['tilename'],
             self['band'],
         )
         fname = expandvars(fname)
 
-        finalcut_flist=files.get_desdm_finalcut_flist(
+        finalcut_flist = files.get_desdm_finalcut_flist(
             self['medsconf'],
             self['tilename'],
             self['band'],
         )
 
-        seg_flist=files.get_desdm_seg_flist(
+        seg_flist = files.get_desdm_seg_flist(
             self['medsconf'],
             self['tilename'],
             self['band'],
         )
-        bkg_flist=files.get_desdm_bkg_flist(
+        bkg_flist = files.get_desdm_bkg_flist(
             self['medsconf'],
             self['tilename'],
             self['band'],
         )
-        objmap=files.get_desdm_objmap(
-            self['medsconf'],
-            self['tilename'],
-            self['band'],
-        )
-
-        coaddinfo=files.get_coaddinfo_file(
+        objmap = files.get_desdm_objmap(
             self['medsconf'],
             self['tilename'],
             self['band'],
         )
 
-        do_fpack = self.get('fpack',True)
+        coaddinfo = files.get_coaddinfo_file(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+
+        do_fpack = self.get('fpack', True)
         if do_fpack:
-            ext='fits.fz'
+            ext = 'fits.fz'
         else:
-            ext='fits'
+            ext = 'fits'
 
-        meds_file=files.get_meds_file(
+        meds_file = files.get_meds_file(
             self['medsconf'],
             self['tilename'],
             self['band'],
             ext=ext,
         )
-        output={
-            'band':self['band'],
-            'tilename':self['tilename'],
-            'coadd_image_url':info['image_path'],
-            'coadd_cat_url':info['cat_path'],
-            'coadd_seg_url':info['seg_path'],
-            'coadd_magzp':info['magzp'],
-            'coadd_object_map':objmap,
+        output = {
+            'band': self['band'],
+            'tilename': self['tilename'],
+            'coadd_image_url': info['image_path'],
+            'coadd_cat_url': info['cat_path'],
+            'coadd_seg_url': info['seg_path'],
+            'coadd_magzp': info['magzp'],
+            'coadd_object_map': objmap,
 
-            'coaddinfo':coaddinfo,
-            'finalcut_flist':finalcut_flist,
-            'seg_flist':seg_flist,
-            'bkg_flist':bkg_flist,
+            'coaddinfo': coaddinfo,
+            'finalcut_flist': finalcut_flist,
+            'seg_flist': seg_flist,
+            'bkg_flist': bkg_flist,
 
-            'meds_url':meds_file,
+            'meds_url': meds_file,
         }
         if self['source_type'] == 'nullwt':
             output['nwgint_flist'] = files.get_desdm_nullwt_flist(
@@ -762,11 +759,11 @@ class Preparator(dict):
                     self['band'],
                 )
 
-        print("writing file config:",fname)
-        with open(fname,'w') as fobj:
+        print("writing file config:", fname)
+        with open(fname, 'w') as fobj:
             for key in output:
                 value = output[key]
-                if key=="coadd_magzp":
+                if key == "coadd_magzp":
                     value = '%.16g' % value
 
                 fobj.write("%s: %s\n" % (key, value))
@@ -775,12 +772,12 @@ class Preparator(dict):
 
     def _make_nullwt(self, info):
 
-        src_info=info['src_info']
+        src_info = info['src_info']
         self._add_nullwt_paths(src_info)
 
-        dir=self['nullwt_dir']
+        dir = self['nullwt_dir']
         if not os.path.exists(dir):
-            print("making directory:",dir)
+            print("making directory:", dir)
             os.makedirs(dir)
 
         print("making nullweight images")
@@ -790,8 +787,7 @@ class Preparator(dict):
 
             cmd = _NULLWT_TEMPLATE % sinfo
 
-            subprocess.check_call(cmd,shell=True)
-
+            subprocess.check_call(cmd, shell=True)
 
     def _add_nullwt_paths(self, src_info):
         for sinfo in src_info:
@@ -807,18 +803,18 @@ class Preparator(dict):
 
     def _copy_psfs(self, info):
 
-        medsdir=files.get_meds_base()
+        medsdir = files.get_meds_base()
 
         psf_dir = expandvars(self['psf_dir'])
 
         if not os.path.exists(psf_dir):
-            print("making directory:",psf_dir)
+            print("making directory:", psf_dir)
             os.makedirs(psf_dir)
 
         psfmap_file = expandvars(self['psfmap_file'])
 
-        print("writing psfmap:",psfmap_file)
-        with open(psfmap_file,'w') as psfmap_fobj:
+        print("writing psfmap:", psfmap_file)
+        with open(psfmap_file, 'w') as psfmap_fobj:
             print("copying psf files")
 
             psfs = self._get_psf_list(info)
@@ -826,10 +822,10 @@ class Preparator(dict):
 
                 psf_file = expandvars(psf_file)
 
-                bname=basename(psf_file)
+                bname = basename(psf_file)
                 ofile = os.path.join(psf_dir, bname)
 
-                fs=bname.split('_')
+                fs = bname.split('_')
                 if 'DES' in fs[0]:
                     # this is the coadd psf, so fake it
                     expnum = -9999
@@ -840,8 +836,9 @@ class Preparator(dict):
                     expnum = fs[0][1:]
                     ccdnum = fs[2][1:]
 
-                ofile_medsdir=ofile.replace(medsdir, '$MEDS_DIR')
-                psfmap_fobj.write("%s %s %s\n" % (expnum, ccdnum, ofile_medsdir))
+                ofile_medsdir = ofile.replace(medsdir, '$MEDS_DIR')
+                ttup = expnum, ccdnum, ofile_medsdir
+                psfmap_fobj.write("%s %s %s\n" % ttup)
 
                 if os.path.exists(ofile):
                     continue
@@ -859,7 +856,7 @@ class Preparator(dict):
         return psfs
 
 
-_NULLWT_TEMPLATE=r"""
+_NULLWT_TEMPLATE = r"""
 coadd_nwgint                  \
    -i "%(image_path)s"        \
    -o "%(nullwt_path)s"       \
@@ -874,5 +871,3 @@ coadd_nwgint                  \
    --tilename %(tilename)s    \
    --hdupcfg "%(nullwt_config)s"
 """
-
-
