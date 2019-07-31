@@ -40,6 +40,8 @@ class CoaddSrc(Coadd):
 
         if 'Y5' in self['campaign']:
             query = _QUERY_COADD_SRC_BYTILE_Y5 % self
+        elif 'COSMOS' in self['campaign']:
+            query = _QUERY_COADD_SRC_BYTILE_Y3A2_COSMOS % self
         else:
             query = _QUERY_COADD_SRC_BYTILE_Y3 % self
 
@@ -137,13 +139,13 @@ class CoaddSrc(Coadd):
         return '/'.join(ps)
 
     def _set_finalcut_campaign(self):
-        y3list=('Y3A1_COADD', 'Y3A2_COADD')
+        y3list=('Y3A1_COADD', 'Y3A2_COADD', )
         if self['campaign'] in y3list:
-            self['finalcut_campaign'] = "'Y3A1_FINALCUT'"
-        elif self['campaign'] == 'Y5A1_COADD':
-            self['finalcut_campaign'] = "'Y5A1_FINALCUT'"
-        elif self['campaign'] == 'Y3A2_COSMOS_COADD_TRUTH_V4':
-            self['finalcut_campaign'] = "'Y3A1_FINALCUT', 'Y4A1_FINALCUT','Y5A1_FINALCUT'"
+            self['finalcut_campaign']='Y3A1_FINALCUT'
+        elif self['campaign']=='Y5A1_COADD':
+            self['finalcut_campaign']='Y5A1_FINALCUT'
+        elif self['campaign']=='Y3A2_COSMOS_COADD_TRUTH_V4':
+            self['finalcut_campaign'] = 'COSMOS_COADD_TRUTH'
         else:
             raise ValueError("determine finalcut campaign "
                              "for '%s'" % self['campaign'])
@@ -183,8 +185,7 @@ where
     and i.ccdnum=j.ccdnum
     and j.filetype='red_immask'
     and j.pfw_attempt_id=tse.pfw_attempt_id
-    -- and tse.tag='{finalcut_campaign}'
-    and tse.tag in ({finalcut_campaign})
+    and tse.tag='{finalcut_campaign}'
     and fai.filename=j.filename
     -- and z.imagename = j.filename
     -- and z.source='FGCM'
@@ -287,12 +288,50 @@ where
     and i.ccdnum=j.ccdnum
     and j.filetype='red_immask'
     and j.pfw_attempt_id=tse.pfw_attempt_id
-    -- and tse.tag='%(finalcut_campaign)s'
-    and tse.tag in ({finalcut_campaign})
+    and tse.tag='%(finalcut_campaign)s'
     and fai.filename=j.filename
     and z.imagename = j.filename
     and z.source='FGCM'
     and z.version='v2.0'
+order by
+    filename
+"""
+
+_QUERY_COADD_SRC_BYTILE_Y3A2_COSMOS = """
+select
+    i.tilename,
+    i.expnum,
+    i.ccdnum,
+    fai.path,
+    j.filename as filename,
+    fai.compression,
+    j.band as band,
+    i.pfw_attempt_id,
+    z.mag_zero as magzp
+from
+    image i,
+    image j,
+    proctag tme,
+    proctag tse,
+    file_archive_info fai,
+    zeropoint z
+where
+    tme.tag='%(campaign)s'
+    and tme.pfw_attempt_id=i.pfw_attempt_id
+    and i.filetype='coadd_nwgint'
+    and i.band='%(band)s'
+    and i.tilename='%(tilename)s'
+    and i.expnum=j.expnum
+    and i.ccdnum=j.ccdnum
+    and j.filetype='red_immask'
+    and j.pfw_attempt_id=tse.pfw_attempt_id
+    and tse.tag='%(finalcut_campaign)s'
+    and fai.filename=j.filename
+    and z.imagename = j.filename
+    -- and z.source='FGCM'
+    -- and z.version='v2.0'
+    and ((z.source='FGCM' and z.version='y4a1_v1.5' and z.flag<16)
+            or(z.source='PGCM_FORCED' and z.version='Y3A2_MISC' and z.flag<16))
 order by
     filename
 """
