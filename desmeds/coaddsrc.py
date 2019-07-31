@@ -137,9 +137,8 @@ class CoaddSrc(Coadd):
         return '/'.join(ps)
 
     def _set_finalcut_campaign(self):
-        if self['campaign']=='Y3A1_COADD':
-            self['finalcut_campaign']='Y3A1_FINALCUT'
-        elif self['campaign']=='Y3A2_COADD':
+        y3list=('Y3A1_COADD', 'Y3A2_COADD', 'Y3A2_DEEP','Y3A2_COSMOS_COADD_TRUTH_V4')
+        if self['campaign'] in y3list:
             self['finalcut_campaign']='Y3A1_FINALCUT'
         elif self['campaign']=='Y5A1_COADD':
             self['finalcut_campaign']='Y5A1_FINALCUT'

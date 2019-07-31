@@ -10,13 +10,7 @@ import yaml
 import fitsio
 
 import meds
-from meds.util import (
-    make_wcs_positions,
-    get_meds_input_struct,
-    get_image_info_struct,
-)
 
-from . import blacklists
 from . import util
 
 from . import files
@@ -24,19 +18,12 @@ from .defaults import default_config
 
 from .files import \
         TempFile, \
-        StagedInFile, \
         StagedOutFile
 
-# desdb is not needed in all scenarios
-try:
-    import desdb
-except ImportError:
-    pass
-
+from .maker import DESMEDSMaker
 
 fwhm_fac = 2*sqrt(2*log(2))
 
-from .maker import DESMEDSMaker
 
 class DESMEDSMakerDESDM(DESMEDSMaker):
     """
@@ -130,7 +117,6 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         """
         image_id_len=len(self.cf['image_id'])
 
-        slen = len(self._get_portable_url(self.cf,'image_url'))
         for s in srclist:
             tlen = len(s['id'])
             if tlen > image_id_len:
@@ -515,7 +501,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
 
     def _write_and_fpack(self, maker, fname):
-        local_fitsname = sf.path.replace('.fits.fz','.fits')
+        local_fitsname = fname.path.replace('.fits.fz','.fits')
 
         with TempFile(local_fitsname) as tfile:
             maker.write(tfile.path)
@@ -664,7 +650,12 @@ class Preparator(dict):
         print("writing:",fname)
         with open(fname, 'w') as fobj:
             for sinfo in src_info:
-                fobj.write("%s %.16g\n" % (sinfo['image_path'], sinfo['magzp'] ))
+                stup = (
+                    sinfo['image_path'],
+                    sinfo['head_path'],
+                    sinfo['magzp'],
+                )
+                fobj.write("%s %s %.16g\n" % stup)
 
     def _write_nullwt_flist(self, src_info, fileconf):
         fname = expandvars(fileconf['nwgint_flist'])
@@ -765,8 +756,7 @@ class Preparator(dict):
             'meds_url':meds_file,
         }
         if self['source_type'] == 'nullwt':
-            output['nwgint_flist'] = \
-                nullwt_flist=files.get_desdm_nullwt_flist(
+            output['nwgint_flist'] = files.get_desdm_nullwt_flist(
                     self['medsconf'],
                     self['tilename'],
                     self['band'],

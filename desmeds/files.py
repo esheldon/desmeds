@@ -1059,6 +1059,7 @@ def get_temp_dir():
 
 
 def read_yaml(fname):
+    fname = os.path.expandvars(fname)
     with open(fname) as fobj:
         data=yaml.load(fobj)
 

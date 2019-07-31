@@ -56,6 +56,7 @@ def fpack_file(fname):
 def load_psfmap(fname):
     import psfex
 
+    fname = os.path.expandvars(fname)
     pmap={}
     with open(fname) as fobj:
         for line in fobj:
@@ -69,12 +70,12 @@ def load_psfmap(fname):
 
             key = '%s-%s' % (expname, ccdstr)
 
-            if 'psfexcat' in path:
+            if 'psfexcat' in path or 'psfcat' in path:
                 print("loading psfex:",path)
                 p=psfex.PSFEx(path)
             else:
                 raise ValueError("only psfex for now")
-            
+
             pmap[key] = p
 
     return pmap
