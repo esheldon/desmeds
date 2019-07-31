@@ -137,11 +137,13 @@ class CoaddSrc(Coadd):
         return '/'.join(ps)
 
     def _set_finalcut_campaign(self):
-        y3list=('Y3A1_COADD', 'Y3A2_COADD', 'Y3A2_DEEP','Y3A2_COSMOS_COADD_TRUTH_V4')
+        y3list=('Y3A1_COADD', 'Y3A2_COADD')
         if self['campaign'] in y3list:
-            self['finalcut_campaign']='Y3A1_FINALCUT'
-        elif self['campaign']=='Y5A1_COADD':
-            self['finalcut_campaign']='Y5A1_FINALCUT'
+            self['finalcut_campaign'] = "'Y3A1_FINALCUT'"
+        elif self['campaign'] == 'Y5A1_COADD':
+            self['finalcut_campaign'] = "'Y5A1_FINALCUT'"
+        elif self['campaign'] == 'Y3A2_COSMOS_COADD_TRUTH_V4':
+            self['finalcut_campaign'] = "'Y3A1_FINALCUT', 'Y4A1_FINALCUT','Y5A1_FINALCUT'"
         else:
             raise ValueError("determine finalcut campaign "
                              "for '%s'" % self['campaign'])
@@ -181,7 +183,8 @@ where
     and i.ccdnum=j.ccdnum
     and j.filetype='red_immask'
     and j.pfw_attempt_id=tse.pfw_attempt_id
-    and tse.tag='{finalcut_campaign}'
+    -- and tse.tag='{finalcut_campaign}'
+    and tse.tag in ({finalcut_campaign})
     and fai.filename=j.filename
     -- and z.imagename = j.filename
     -- and z.source='FGCM'
@@ -284,7 +287,8 @@ where
     and i.ccdnum=j.ccdnum
     and j.filetype='red_immask'
     and j.pfw_attempt_id=tse.pfw_attempt_id
-    and tse.tag='%(finalcut_campaign)s'
+    -- and tse.tag='%(finalcut_campaign)s'
+    and tse.tag in ({finalcut_campaign})
     and fai.filename=j.filename
     and z.imagename = j.filename
     and z.source='FGCM'
