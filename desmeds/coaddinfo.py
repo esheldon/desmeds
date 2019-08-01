@@ -84,8 +84,9 @@ class Coadd(dict):
         remove downloaded files for the specified tile and band
         """
 
-        print("removing sources:",self['source_dir'])
-        shutil.rmtree(self['source_dir'])
+        source_dir = os.path.expandvars(self['source_dir'])
+        print("removing sources:",source_dir)
+        shutil.rmtree(source_dir)
 
     def get_objmap(self, info):
         """

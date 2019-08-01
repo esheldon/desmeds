@@ -80,7 +80,8 @@ class Generator(dict):
 
         self['seed']=make_seed(self)
 
-        with open(self['script_file'],'w') as fobj:
+        script_file = os.path.expandvars(self['script_file'])
+        with open(script_file, 'w') as fobj:
             text=_coadd_script_template % self
             fobj.write(text)
 
@@ -102,7 +103,8 @@ class Generator(dict):
             # the global seed. Othewise generate it
             self['seed']=make_seed(self)
 
-        with open(self['script_file'],'w') as fobj:
+        script_file = os.path.expandvars(self['script_file'])
+        with open(script_file,'w') as fobj:
             text=_coadd_script_template % self
             fobj.write(text)
     '''
@@ -125,6 +127,7 @@ class Generator(dict):
             self['band'],
             missing=self.missing,
         )
+        lsf_file = os.path.expandvars(lsf_file)
 
         subfile=lsf_file+'.submitted'
         if self.missing and os.path.exists(self['meds_file']):
@@ -160,6 +163,7 @@ class Generator(dict):
             self['band'],
             missing=self.missing,
         )
+        wq_file = os.path.expandvars(wq_file)
 
         if self.missing and os.path.exists(self['meds_file']):
             if os.path.exists(wq_file):
@@ -172,7 +176,7 @@ class Generator(dict):
         make_dirs(wq_file)
         print('    writing wq script:',wq_file)
 
-        with open(wq_file,'w') as fobj:
+        with open(wq_file, 'w') as fobj:
             text=_wq_make_meds_template % self
             fobj.write(text)
 
@@ -238,18 +242,22 @@ N: 2
 
 _script_template=r"""#!/bin/bash
 
+export OMP_NUM_THREADS=2
+
 mkdir -p $TMPDIR
 
-desmeds-make-meds \
+python -u $(which desmeds-make-meds) \
     --tmpdir=$TMPDIR \
     %(medsconf)s %(tilename)s %(band)s
 """
 
 _coadd_script_template=r"""#!/bin/bash
 
+export OMP_NUM_THREADS=2
+
 mkdir -p $TMPDIR
 
-desmeds-make-meds \
+python -u $(which desmeds-make-meds) \
     --tmpdir=$TMPDIR \
     --coadd \
     --seed=%(seed)d \

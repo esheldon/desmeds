@@ -1272,7 +1272,8 @@ def get_desdm_objmap(medsconf, tilename, band):
 
 def try_remove_timeout(fname, ntry=2, sleep_time=2):
     import time
-    
+    fname = os.path.expandvars(fname)
+
     for i in range(ntry):
         try:
             os.remove(fname)
@@ -1286,6 +1287,7 @@ def try_remove_timeout(fname, ntry=2, sleep_time=2):
                 time.sleep(sleep_time)
 
 def try_remove(f):
+    f = os.path.expandvars(f)
     try:
         os.remove(f)
         print("removed file:",f)
@@ -1294,6 +1296,7 @@ def try_remove(f):
 
 
 def try_remove_dir(d):
+    d = os.path.expandvars(d)
     try:
         shutil.rmtree(d)
         print("removed dir:",d)
