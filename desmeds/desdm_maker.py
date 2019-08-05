@@ -239,8 +239,9 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         assert 'coadd_psf_url' in self.file_dict, \
             'you must set both coadd_psf_url and psf_flist'
 
-        assert self['psf_type'] == 'psfex', \
-            'only psf_type == "psfex" supported'
+        assert 'psf' in self, 'you must have a psf entry when loading psfs'
+        assert self['psf']['type'] == 'psfex', \
+            'only psf type psfex" supported'
 
         flist = [cf['psf_url']]
         flist = flist + [src['red_psf'] for src in cf['srclist']]
@@ -494,6 +495,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         assert self['source_type'] in ['finalcut', 'nullwt']
 
+        # support old way
+        if 'psf_type' in self:
+            self['psf'] = {'psf_type': self['psf_type']}
+
     def _load_file_config(self, fileconf):
         """
         load the yaml file config
@@ -506,7 +511,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         self.file_dict = fd
 
     def _write_and_fpack(self, maker, fname):
-        local_fitsname = fname.path.replace('.fits.fz', '.fits')
+        local_fitsname = fname.replace('.fits.fz', '.fits')
 
         with TempFile(local_fitsname) as tfile:
             maker.write(tfile.path)
@@ -600,6 +605,7 @@ class Preparator(dict):
 
         self._write_seg_flist(info['src_info'], fileconf)
         self._write_bkg_flist(info['src_info'], fileconf)
+        self._write_psf_flist(info['src_info'], fileconf)
 
         self._write_coaddinfo(info)
 
@@ -676,6 +682,13 @@ class Preparator(dict):
             for sinfo in src_info:
                 fobj.write("%s\n" % sinfo['bkg_path'])
 
+    def _write_psf_flist(self, src_info, fileconf):
+        fname = expandvars(fileconf['psf_flist'])
+        print("writing:", fname)
+        with open(fname, 'w') as fobj:
+            for sinfo in src_info:
+                fobj.write("%s\n" % sinfo['psf_path'])
+
     def _write_coaddinfo(self, info):
         fname = files.get_coaddinfo_file(
             self['medsconf'],
@@ -712,6 +725,11 @@ class Preparator(dict):
             self['tilename'],
             self['band'],
         )
+        psf_flist = files.get_desdm_psf_flist(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
         objmap = files.get_desdm_objmap(
             self['medsconf'],
             self['tilename'],
@@ -742,6 +760,7 @@ class Preparator(dict):
             'coadd_image_url': info['image_path'],
             'coadd_cat_url': info['cat_path'],
             'coadd_seg_url': info['seg_path'],
+            'coadd_psf_url': info['psf_path'],
             'coadd_magzp': info['magzp'],
             'coadd_object_map': objmap,
 
@@ -749,6 +768,7 @@ class Preparator(dict):
             'finalcut_flist': finalcut_flist,
             'seg_flist': seg_flist,
             'bkg_flist': bkg_flist,
+            'psf_flist': psf_flist,
 
             'meds_url': meds_file,
         }
