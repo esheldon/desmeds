@@ -217,14 +217,12 @@ def get_meds_base():
     The base directory $DESDATA/meds
     """
 
-    """
+    # return '$MEDS_DIR'
+
     dir = os.environ['MEDS_DIR']
     if dir[-1] == '/':
         dir = dir[0:-1]
     return dir
-    """
-
-    return '$MEDS_DIR'
 
 
 def get_meds_dir(medsconf, tilename):
@@ -242,6 +240,20 @@ def get_meds_dir(medsconf, tilename):
     bdir = get_meds_base()
     return os.path.join(bdir, medsconf, tilename)
 
+
+def get_work_dir(tilename, band):
+    tmpdir = os.environ['TMPDIR']
+    dname = 'meds-%s-%s' % (tilename, band)
+    if os.path.basename(tmpdir) == dname:
+        # we must have already appended that
+        return tmpdir
+    else:
+        return os.path.join(
+            tmpdir,
+            dname,
+        )
+
+
 def get_source_dir(medsconf, tilename, band):
     """
     get the directory to hold input sources for MEDS files
@@ -254,7 +266,8 @@ def get_source_dir(medsconf, tilename, band):
         e.g. 'DES0417-5914'
     """
 
-    dir=get_meds_dir(medsconf, tilename)
+    # dir=get_meds_dir(medsconf, tilename)
+    dir = get_work_dir(tilename, band)
     return os.path.join(dir, 'sources-%s' % band)
 
 

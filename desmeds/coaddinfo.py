@@ -2,31 +2,36 @@ from __future__ import print_function
 import os
 import shutil
 import numpy
-import fitsio
 import tempfile
 import subprocess
 
 from . import files
+
 
 class Coadd(dict):
     """
     information for coadds.  Can use the download() method to copy
     to the local disk heirchy
     """
-    def __init__(self, medsconf, tilename, band, campaign='Y3A1_COADD', src=None, sources=None):
+    def __init__(self, medsconf,
+                 tilename,
+                 band,
+                 campaign='Y3A1_COADD',
+                 src=None,
+                 sources=None):
 
         self['medsconf'] = medsconf
         self['tilename'] = tilename
         self['band'] = band
 
-        self['source_dir']=files.get_source_dir(
+        self['source_dir'] = files.get_source_dir(
             self['medsconf'],
             self['tilename'],
             self['band'],
         )
 
-        self['campaign']=campaign.upper()
-        self.sources=sources
+        self['campaign'] = campaign.upper()
+        self.sources = sources
 
     def get_info(self):
         """
@@ -78,15 +83,20 @@ class Coadd(dict):
             files.try_remove_timeout(self['flist_file'])
 
         return info
-        
+
     def clean(self):
         """
         remove downloaded files for the specified tile and band
         """
 
         source_dir = os.path.expandvars(self['source_dir'])
+        work_dir = files.get_work_dir(self['tilename'], self['band'])
+
         print("removing sources:",source_dir)
         shutil.rmtree(source_dir)
+
+        print("removing work dir:",work_dir)
+        shutil.rmtree(work_dir)
 
     def get_objmap(self, info):
         """

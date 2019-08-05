@@ -836,8 +836,9 @@ class Preparator(dict):
                     expnum = fs[0][1:]
                     ccdnum = fs[2][1:]
 
-                ofile_medsdir = ofile.replace(medsdir, '$MEDS_DIR')
-                ttup = expnum, ccdnum, ofile_medsdir
+                # ofile_medsdir = ofile.replace(medsdir, '$MEDS_DIR')
+                # ttup = expnum, ccdnum, ofile_medsdir
+                ttup = expnum, ccdnum, ofile
                 psfmap_fobj.write("%s %s %s\n" % ttup)
 
                 if os.path.exists(ofile):

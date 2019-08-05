@@ -111,19 +111,20 @@ def main():
             )
         )
 
-
         should_make=True
         if args.coadd:
             meds_url_coadd=fileconf['meds_url']
 
-            meds_url_nocoadd=meds_url_coadd.replace('.fits.fz','.fits')
-            meds_url_nocoadd=meds_url_nocoadd.replace('.fits','-nocoadd.fits')
+            meds_url_nocoadd = meds_url_coadd.replace('.fits.fz','.fits')
+            meds_url_nocoadd = meds_url_nocoadd.replace('.fits','-nocoadd.fits')
+            meds_url_nocoadd = os.path.expandvars(meds_url_nocoadd)
+
             fileconf['meds_url'] = meds_url_nocoadd
-            
+
             # don't make it if it exists and noprep was requested
+            print('checking for meds_url_nocoadd:', meds_url_nocoadd)
             if args.noprep and os.path.exists(meds_url_nocoadd):
                 should_make=False
-
 
         if should_make:
             maker = desmeds.DESMEDSMakerDESDM(

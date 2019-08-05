@@ -237,12 +237,14 @@ command: |
     rm -rv $tmpdir
 
 job_name: "meds-%(tilename)s-%(band)s"
-N: 2
+mode: bynode
+# group: [gen3, gen7]
+# N: 4
 """
 
 _script_template=r"""#!/bin/bash
 
-export OMP_NUM_THREADS=2
+export OMP_NUM_THREADS=4
 
 mkdir -p $TMPDIR
 
