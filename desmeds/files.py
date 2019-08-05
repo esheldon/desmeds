@@ -1242,6 +1242,35 @@ def get_desdm_bkg_flist(medsconf, tilename, band):
     )
 
 
+def get_desdm_psf_flist(medsconf, tilename, band):
+    """
+    the desdm version needs a list
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    type='psf-flist'
+    ext='dat'
+    subdir='lists-%s' % band
+
+    return get_meds_datafile_generic(
+        medsconf,
+        tilename,
+        band,
+        type,
+        ext,
+        subdir=subdir,
+    )
+
+
 def get_desdm_objmap(medsconf, tilename, band):
     """
     the desdm version needs a map
