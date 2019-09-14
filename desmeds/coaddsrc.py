@@ -2,6 +2,7 @@ from __future__ import print_function
 import os
 import shutil
 import tempfile
+import hashlib
 import numpy
 import fitsio
 
@@ -26,12 +27,31 @@ class CoaddSrc(Coadd):
         else:
             info_list = self._do_query()
 
+            # sort the list to make code stable
+            info_list = self._sort_list(info_list)
+
             # add full path info
             self._add_full_paths(info_list)
 
             self._info_list=info_list
 
         return info_list
+
+    def _sort_list(self, info_list):
+        """
+        sort the list to make class stable against random return order
+        from the database
+        """
+
+        # build hashes and sort
+        hashes = []
+        for i in range(len(info_list)):
+            hash_str = "%s%s" % (
+                info_list[i]['expnum'],
+                info_list[i]['ccdnum'])
+            hashes.append(hashlib.md5(hash_str.encode('utf-8')).hexdigest())
+        inds = numpy.argsort(hashes)
+        return [info_list[i] for i in inds]
 
     def _do_query(self):
         """
