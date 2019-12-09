@@ -240,29 +240,46 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             'you must set both coadd_psf_url and psf_flist'
 
         assert 'psf' in self, 'you must have a psf entry when loading psfs'
-        assert self['psf']['type'] == 'psfex', \
-            'only psf type psfex" supported'
-
-        flist = [cf['psf_url']]
-        flist = flist + [src['red_psf'] for src in cf['srclist']]
 
         psf_data = []
 
-        for f in flist:
-            psf = self._load_one_psf(f)
+        psf = self._load_one_psf(cf['psf_url'], self['psf']['coadd'])
+        psf_data.append(psf)
 
+
+        flist = [src['red_psf'] for src in cf['srclist']]
+
+        for f in flist:
+            psf = self._load_one_psf(f, self['psf']['se'])
             psf_data.append(psf)
 
         return psf_data
 
-    def _load_one_psf(self, f):
+    def _load_one_psf(self, f, conf):
         """
-        load a single psf
+        load a psf of the given type
+        """
+        if conf['type'] == 'psfex':
+            return self._load_one_psfex(f)
+        elif conf['type'] == 'piff':
+            return self._load_one_piff(f, conf)
+        else:
+            raise ValueError('only psfex or piff supported'')
+
+    def _load_one_psfex(self, f):
+        """
+        load a single psfex psf
         """
         import psfex
         print('loading psfex data:', f)
-        psf = psfex.PSFEx(f)
-        return psf
+        return psfex.PSFEx(f)
+
+    def _load_one_piff(self, f, conf):
+        """
+        load a single psf
+        """
+        print('loading piff data:', f)
+        return PIFFWrapper(f, stamp_size=conf['stamp_size'])
 
     def _verify_src_info(self, srclist):
         """
@@ -495,9 +512,11 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         assert self['source_type'] in ['finalcut', 'nullwt']
 
+        assert 'psf' in self
+
         # support old way
-        if 'psf_type' in self:
-            self['psf'] = {'psf_type': self['psf_type']}
+        # if 'psf_type' in self:
+        #     self['psf'] = {'psf_type': self['psf_type']}
 
     def _load_file_config(self, fileconf):
         """
@@ -892,3 +911,90 @@ coadd_nwgint                  \
    --tilename %(tilename)s    \
    --hdupcfg "%(nullwt_config)s"
 """
+
+class PIFFWrapper(dict):
+    """
+    provide an interface consistent with the PSFEx class
+    """
+    def __init__(self, psf_path, stamp_size=17, center_psf=True):
+
+        import piff
+
+        assert center_psf == True
+
+        self.piff_obj = piff.read(psf_path)
+
+        self['filename'] = psf_path
+        self['stamp_size'] = stamp_size
+        self['center_psf'] = center_psf
+
+        self.center_cache = {}
+
+    def get_rec(self, row, col):
+        """
+        get the psf reconstruction as a numpy array
+
+        image is normalized
+        """
+
+        y, x, = self._get_yx(row, col)
+
+        gsim = self.piff_obj.draw(
+            x=x,
+            y=y,
+            stamp_size=self['stamp_size'],
+        )
+        im = gsim.array
+
+        im *= (1.0/im.sum())
+
+        self._cache_center(y, x, im)
+
+        return im
+
+    def get_center(self, row, col):
+        """
+        get the center location
+        """
+
+        y, x, = self._get_yx(row, col)
+        key = self._get_center_cache_key(y, x)
+
+        if key not in self.center_cache:
+            # this will force a cache
+            im = self.get_rec(row, col)
+
+        return self.center_cache[key]
+
+    def get_sigma(self):
+        """
+        pixels
+        """
+        return np.sqrt(4.0/2.0)
+
+    def _cache_center(self, row, col, im):
+        """
+        cache the center for the get_center call
+        """
+
+        y, x, = self._get_yx(row, col)
+
+        key = self._get_center_cache_key(y, x)
+
+        # assuming center_psf is True here
+        cen = (np.array(im.shape)-1.0)/2.0
+
+        self.center_cache[key] = cen
+
+    def _get_center_cache_key(self, row, col):
+        key = '%.16g-%.16g' % (row, col)
+
+    def _get_yx(self, row, col):
+        if self['center_psf']:
+            x = int(col + 0.5)
+            y = int(row + 0.5)
+        else:
+            x=int(col+0.5),
+            y=int(row+0.5),
+
+        return y, x
