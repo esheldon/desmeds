@@ -1,4 +1,5 @@
 from __future__ import print_function
+import numpy as np
 import os
 from os.path import basename, expandvars
 import numpy
@@ -158,6 +159,20 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         self.cf = cf
         self.cf_refband = cf
 
+    """
+    def _get_wcs(self, file_id):
+        try:
+            print('trying piff wcs')
+            # this works for the PIFFWrapper psfs
+            pobj = self.psf_data[file_id]
+            wcs = pobj.get_wcs()
+            print('got piff wcs')
+        except AttributeError:
+            wcs = super()._get_wcs(file_id)
+
+        return wcs
+    """
+
     def _read_coadd_cat(self):
         """
         read the DESDM coadd catalog, sorting by the number field (which
@@ -236,6 +251,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         """
 
         print('loading psf data')
+
         assert 'coadd_psf_url' in self.file_dict, \
             'you must set both coadd_psf_url and psf_flist'
 
@@ -245,7 +261,6 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         psf = self._load_one_psf(cf['psf_url'], self['psf']['coadd'])
         psf_data.append(psf)
-
 
         flist = [src['red_psf'] for src in cf['srclist']]
 
@@ -264,7 +279,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         elif conf['type'] == 'piff':
             return self._load_one_piff(f, conf)
         else:
-            raise ValueError('only psfex or piff supported'')
+            raise ValueError('only psfex or piff supported')
 
     def _load_one_psfex(self, f):
         """
@@ -355,8 +370,6 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         elif 'finalcut_flist' in self.file_dict:
             assert self['source_type'] == 'finalcut', \
                 'source type should be finalcut'
-            assert self['use_astro_refine'] is True,\
-                'use_astro_refine should be True'
 
             res = self._load_src_info_fromfile(
                 self.file_dict['finalcut_flist'],
@@ -371,7 +384,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         finalcut_flist = expandvars(finalcut_flist)
 
         print('reading finalcut info from:', finalcut_flist)
-        print('using ohead files for the wcs')
+        # print('using ohead files for the wcs')
         src_info = []
 
         with open(finalcut_flist) as fobj:
@@ -382,12 +395,15 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                 ohead_path = expandvars(ls[1])
                 magzp = float(ls[2])
 
-                img_hdr = fitsio.read_header(
-                    red_path,
-                    ext=self['se_image_ext'],
-                )
-                wcs_hdr = fitsio.read_scamp_head(ohead_path)
-                wcs_hdr = util.add_naxis_to_fitsio_header(wcs_hdr, img_hdr)
+                if self['use_astro_refine']:
+                    img_hdr = fitsio.read_header(
+                        red_path,
+                        ext=self['se_image_ext'],
+                    )
+                    wcs_hdr = fitsio.read_scamp_head(ohead_path)
+                    wcs_hdr = util.add_naxis_to_fitsio_header(wcs_hdr, img_hdr)
+                else:
+                    wcs_hdr = None
 
                 sid = self._get_filename_as_id(red_path)
                 entry = {
@@ -513,10 +529,6 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         assert self['source_type'] in ['finalcut', 'nullwt']
 
         assert 'psf' in self
-
-        # support old way
-        # if 'psf_type' in self:
-        #     self['psf'] = {'psf_type': self['psf_type']}
 
     def _load_file_config(self, fileconf):
         """
@@ -842,8 +854,6 @@ class Preparator(dict):
 
     def _copy_psfs(self, info):
 
-        medsdir = files.get_meds_base()
-
         psf_dir = expandvars(self['psf_dir'])
 
         if not os.path.exists(psf_dir):
@@ -875,8 +885,6 @@ class Preparator(dict):
                     expnum = fs[0][1:]
                     ccdnum = fs[2][1:]
 
-                # ofile_medsdir = ofile.replace(medsdir, '$MEDS_DIR')
-                # ttup = expnum, ccdnum, ofile_medsdir
                 ttup = expnum, ccdnum, ofile
                 psfmap_fobj.write("%s %s %s\n" % ttup)
 
@@ -912,6 +920,7 @@ coadd_nwgint                  \
    --hdupcfg "%(nullwt_config)s"
 """
 
+
 class PIFFWrapper(dict):
     """
     provide an interface consistent with the PSFEx class
@@ -920,7 +929,7 @@ class PIFFWrapper(dict):
 
         import piff
 
-        assert center_psf == True
+        assert center_psf is True
 
         self.piff_obj = piff.read(psf_path)
 
@@ -962,7 +971,7 @@ class PIFFWrapper(dict):
 
         if key not in self.center_cache:
             # this will force a cache
-            im = self.get_rec(row, col)
+            _ = self.get_rec(row, col)
 
         return self.center_cache[key]
 
@@ -971,6 +980,9 @@ class PIFFWrapper(dict):
         pixels
         """
         return np.sqrt(4.0/2.0)
+
+    def get_wcs(self):
+        return GalsimWCSWrapper(self.piff_obj.wcs[0])
 
     def _cache_center(self, row, col, im):
         """
@@ -987,14 +999,71 @@ class PIFFWrapper(dict):
         self.center_cache[key] = cen
 
     def _get_center_cache_key(self, row, col):
-        key = '%.16g-%.16g' % (row, col)
+        return '%.16g-%.16g' % (row, col)
 
     def _get_yx(self, row, col):
         if self['center_psf']:
-            x = int(col + 0.5)
-            y = int(row + 0.5)
+            x = int(col+0.5)
+            y = int(row+0.5)
         else:
-            x=int(col+0.5),
-            y=int(row+0.5),
+            x = col - int(col+0.5)
+            y = row - int(row+0.5)
 
         return y, x
+
+
+class GalsimWCSWrapper(object):
+    """
+    wrapper for the galsim wcs to extract an ngmix
+    jacobian
+    """
+    def __init__(self, wcs, naxis=None):
+        self._wcs = wcs
+        self.set_naxis(naxis)
+
+    def sky2image(self, ra, dec):
+        return self._wcs._xy(ra, dec)
+
+    def image2sky(self, col, row):
+        return self._wcs._radec(col, row, c=0)
+
+    def get_jacobian(self, x, y):
+        if np.ndim(x) > 0:
+            num = len(x)
+            dudcol = np.zeros(num)
+            dudrow = np.zeros(num)
+            dvdcol = np.zeros(num)
+            dvdrow = np.zeros(num)
+            for i in range(num):
+                tdudcol, tdudrow, tdvdcol, tdvdrow = \
+                    self._get_jacobian(x[i], y[i])
+                dudcol[i] = tdudcol
+                dudrow[i] = tdudrow
+                dvdcol[i] = tdvdcol
+                dvdrow[i] = tdvdrow
+        else:
+            dudcol, dudrow, dvdcol, dvdrow = self._get_jacobian(x, y)
+
+        return dudcol, dudrow, dvdcol, dvdrow
+
+    def _get_jacobian(self, x, y):
+        import galsim
+
+        pos = galsim.PositionD(x=x, y=y)
+        gs_jac = self._wcs.jacobian(image_pos=pos)
+
+        dudcol = gs_jac.dudx
+        dudrow = gs_jac.dudy
+        dvdcol = gs_jac.dvdx
+        dvdrow = gs_jac.dvdy
+
+        return dudcol, dudrow, dvdcol, dvdrow
+
+    def set_naxis(self, naxis):
+        self._naxis = naxis
+
+    def get_naxis(self):
+        if self._naxis is not None:
+            return self._naxis.copy()
+        else:
+            None

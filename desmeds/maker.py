@@ -307,8 +307,13 @@ class DESMEDSMaker(dict):
         wcs_json = []
         wcs_json.append(json.dumps(util.fitsio_header_to_dict(coadd_wcs)))
         for s in srclist:
-            #wcs_json.append(json.dumps(s['wcs_header']))
-            wcs_json.append(json.dumps(util.fitsio_header_to_dict(s['wcs_header'])))
+            if s['wcs_header'] is None:
+                d = {}
+            else:
+                d = json.dumps(util.fitsio_header_to_dict(s['wcs_header']))
+
+            wcs_json.append(d)
+
         return wcs_json
 
     def _get_srclist(self):
