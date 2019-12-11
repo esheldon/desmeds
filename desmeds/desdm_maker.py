@@ -936,8 +936,12 @@ class PIFFWrapper(dict):
         self['filename'] = psf_path
         self['stamp_size'] = stamp_size
         self['center_psf'] = center_psf
+        self['rec_shape'] = (stamp_size, stamp_size)
 
         self.center_cache = {}
+
+    def get_rec_shape(self, *args):
+        return self['rec_shape']
 
     def get_rec(self, row, col):
         """
@@ -965,15 +969,19 @@ class PIFFWrapper(dict):
         """
         get the center location
         """
+        if self['center_psf']:
+            sa = np.array(self.get_rec_shape(row, col))
+            return (sa-1.0)/2.0
+        else:
 
-        y, x, = self._get_yx(row, col)
-        key = self._get_center_cache_key(y, x)
+            y, x, = self._get_yx(row, col)
+            key = self._get_center_cache_key(y, x)
 
-        if key not in self.center_cache:
-            # this will force a cache
-            _ = self.get_rec(row, col)
+            if key not in self.center_cache:
+                # this will force a cache
+                _ = self.get_rec(row, col)
 
-        return self.center_cache[key]
+            return self.center_cache[key]
 
     def get_sigma(self):
         """
