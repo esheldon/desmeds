@@ -1016,16 +1016,31 @@ class GalsimWCSWrapper(object):
     """
     wrapper for the galsim wcs to extract an ngmix
     jacobian
+
     """
     def __init__(self, wcs, naxis=None):
         self._wcs = wcs
         self.set_naxis(naxis)
 
     def sky2image(self, ra, dec):
-        return self._wcs._xy(ra, dec)
+
+        ra = np.radians(ra)
+        dec = np.radians(dec)
+        x, y = self._wcs._xy(ra, dec, c=0)
+
+        x += self._wcs.x0
+        y += self._wcs.y0
+
+        return x, y
 
     def image2sky(self, col, row):
-        return self._wcs._radec(col, row, c=0)
+        x = col - self._wcs.x0
+        y = row - self._wcs.y0
+        ra, dec = self._wcs._radec(x, y, c=0)
+        ra = np.degrees(ra)
+        dec = np.degrees(dec)
+
+        return ra, dec
 
     def get_jacobian(self, x, y):
         if np.ndim(x) > 0:
