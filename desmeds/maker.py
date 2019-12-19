@@ -502,12 +502,20 @@ class DESMEDSMaker(dict):
 
         # required
         self.obj_data['id'] = iddata['coadd_objects_id']
+        self.obj_data['color'] = iddata['color']
 
         # get ra,dec
         coadd_hdr = fitsio.read_header(self.cf_refband['image_url'],
                                        ext=self['coadd_image_ext'])
         coadd_wcs = eu.wcsutil.WCS(coadd_hdr)
-        ra,dec = coadd_wcs.image2sky(pos['wcs_col'], pos['wcs_row'])
+
+        if 'color' in self.obj_data.dtype.names:
+            color = self.obj_data['color']
+        else:
+            color = None
+
+        ra, dec = _image2sky_func(coadd_wcs, ra, dec, color=color)
+
         self.obj_data['ra'] = ra
         self.obj_data['dec'] = dec
 
@@ -676,6 +684,7 @@ class DESMEDSMaker(dict):
             ('y2_err','f4'),
             ('input_row','f8'),
             ('input_col','f8'),
+            ('color', 'f4'),
         ]
 
         # -qz 4.0 instead of -q 4.0
@@ -708,3 +717,13 @@ def _isnum(val):
         ret=False
 
     return ret
+
+def _image2sky_func(wcs, ra, dec, color=None):
+    if color is not None:
+        try:
+            res = wcs.image2sky(ra, dec, color=color)
+        except TypeError:
+            res = wcs.image2sky(ra, dec)
+    else:
+        res = wcs.image2sky(ra, dec)
+    return res

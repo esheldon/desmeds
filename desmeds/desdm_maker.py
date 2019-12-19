@@ -482,6 +482,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         dt = [
             ('object_number', 'i4'),
             ('coadd_objects_id', 'i8')
+            ('color', 'f4'),
         ]
 
         nobj = self.coadd_cat.size
@@ -495,6 +496,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         iddata['object_number'] = idmap['object_number'][s]
         iddata['coadd_objects_id'] = idmap['id'][s]
+        iddata['color'] = idmap['gi_color'][s].clip(min=-1, max=3)
 
         return iddata
 
@@ -1022,35 +1024,34 @@ class PIFFWrapper(dict):
 
 class GalsimWCSWrapper(object):
     """
-    wrapper for the galsim wcs to extract an ngmix
-    jacobian
-
+    wrapper for the galsim wcs, designed to be consistent
+    with esutil WCS
     """
     def __init__(self, wcs, naxis=None):
         self._wcs = wcs
         self.set_naxis(naxis)
 
-    def sky2image(self, ra, dec):
+    def sky2image(self, ra, dec, color=0.6):
 
         ra = np.radians(ra)
         dec = np.radians(dec)
-        x, y = self._wcs._xy(ra, dec, c=0)
+        x, y = self._wcs._xy(ra, dec, c=color)
 
         x += self._wcs.x0
         y += self._wcs.y0
 
         return x, y
 
-    def image2sky(self, col, row):
+    def image2sky(self, col, row, color=0.6):
         x = col - self._wcs.x0
         y = row - self._wcs.y0
-        ra, dec = self._wcs._radec(x, y, c=0)
+        ra, dec = self._wcs._radec(x, y, c=color)
         ra = np.degrees(ra)
         dec = np.degrees(dec)
 
         return ra, dec
 
-    def get_jacobian(self, x, y):
+    def get_jacobian(self, x, y, color=0.6):
         if np.ndim(x) > 0:
             num = len(x)
             dudcol = np.zeros(num)
@@ -1059,21 +1060,22 @@ class GalsimWCSWrapper(object):
             dvdrow = np.zeros(num)
             for i in range(num):
                 tdudcol, tdudrow, tdvdcol, tdvdrow = \
-                    self._get_jacobian(x[i], y[i])
+                    self._get_jacobian(x[i], y[i], color)
                 dudcol[i] = tdudcol
                 dudrow[i] = tdudrow
                 dvdcol[i] = tdvdcol
                 dvdrow[i] = tdvdrow
         else:
-            dudcol, dudrow, dvdcol, dvdrow = self._get_jacobian(x, y)
+            dudcol, dudrow, dvdcol, dvdrow = \
+                self._get_jacobian(x, y, color)
 
         return dudcol, dudrow, dvdcol, dvdrow
 
-    def _get_jacobian(self, x, y):
+    def _get_jacobian(self, x, y, color):
         import galsim
 
         pos = galsim.PositionD(x=x, y=y)
-        gs_jac = self._wcs.jacobian(image_pos=pos)
+        gs_jac = self._wcs.jacobian(image_pos=pos, color=color)
 
         dudcol = gs_jac.dudx
         dudrow = gs_jac.dudy
