@@ -30,7 +30,6 @@ from meds.util import \
 from . import blacklists
 from . import util
 
-from . import util
 from . import files
 
 from . import defaults
@@ -49,6 +48,7 @@ except ImportError:
 
 
 fwhm_fac = 2*sqrt(2*log(2))
+
 
 class DESMEDSMaker(dict):
     """
@@ -104,17 +104,19 @@ class DESMEDSMaker(dict):
 
         if self.do_meds:
             self._load_stubby_meds()
-            self._write_meds_file() # does second pass to write data
+            self._write_meds_file()  # does second pass to write data
 
     def _read_coadd_cat(self):
         """
         read the DESDM coadd catalog, sorting by the number field (which
         should already be the case)
         """
-        fname=self.df.url(type='coadd_cat',
-                          coadd_run=self['coadd_run'],
-                          band=self['refband'],
-                          tilename=self['tilename'])
+        fname = self.df.url(
+            type='coadd_cat',
+            coadd_run=self['coadd_run'],
+            band=self['refband'],
+            tilename=self['tilename'],
+        )
         print('reading coadd cat:',fname)
         self.coadd_cat = fitsio.read(fname, lower=True)
 
@@ -514,7 +516,13 @@ class DESMEDSMaker(dict):
         else:
             color = None
 
-        ra, dec = _image2sky_func(coadd_wcs, ra, dec, color=color)
+
+        ra, dec = _image2sky_func(
+            coadd_wcs,
+            pos['wcs_col'],
+            pos['wcs_row'],
+            color=color,
+        )
 
         self.obj_data['ra'] = ra
         self.obj_data['dec'] = dec
@@ -718,12 +726,13 @@ def _isnum(val):
 
     return ret
 
-def _image2sky_func(wcs, ra, dec, color=None):
+def _image2sky_func(wcs, x, y, color=None):
     if color is not None:
         try:
-            res = wcs.image2sky(ra, dec, color=color)
+            res = wcs.image2sky(x, y, color=color)
+            print('used color in image2sky')
         except TypeError:
-            res = wcs.image2sky(ra, dec)
+            res = wcs.image2sky(x, y)
     else:
-        res = wcs.image2sky(ra, dec)
+        res = wcs.image2sky(x, y)
     return res
