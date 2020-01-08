@@ -481,7 +481,8 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         dt = [
             ('object_number', 'i4'),
-            ('coadd_objects_id', 'i8')
+            ('coadd_objects_id', 'i8'),
+            ('color', 'f4'),
         ]
 
         nobj = self.coadd_cat.size
@@ -489,12 +490,25 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         iddata = zeros(nobj, dtype=dt)
 
         fname = expandvars(self.file_dict['coadd_object_map'])
+        print('reading id map:', fname)
         idmap = fitsio.read(fname, lower=True)
 
         s = numpy.argsort(idmap['object_number'])
 
         iddata['object_number'] = idmap['object_number'][s]
         iddata['coadd_objects_id'] = idmap['id'][s]
+
+        gmi = idmap['gi_color'][s].copy()
+        w, = numpy.where(
+            (gmi < -1)
+            |
+            (gmi > 3)
+        )
+        if w.size > 0:
+            gmi[w] = 0.6
+
+        iddata['color'] = gmi
+        # iddata['color'] = idmap['gi_color'][s].clip(min=-1, max=3)
 
         return iddata
 
@@ -1019,38 +1033,75 @@ class PIFFWrapper(dict):
 
         return y, x
 
+DEFAULT_COLOR = 0.6
 
 class GalsimWCSWrapper(object):
     """
-    wrapper for the galsim wcs to extract an ngmix
-    jacobian
-
+    wrapper for the galsim wcs, designed to be consistent
+    with esutil WCS
     """
     def __init__(self, wcs, naxis=None):
         self._wcs = wcs
         self.set_naxis(naxis)
 
-    def sky2image(self, ra, dec):
+    def sky2image(self, ra, dec, color=None):
+
+        if np.ndim(ra) == 0:
+            ra = np.array(ra, copy=False, ndmin=1)
+            dec = np.array(dec, copy=False, ndmin=1)
+            if color is not None:
+                color = np.array(color, copy=False, ndmin=1)
+
+            is_scalar = True
+        else:
+            is_scalar = False
+
+        if color is None:
+            color = ra*0 + DEFAULT_COLOR 
 
         ra = np.radians(ra)
         dec = np.radians(dec)
-        x, y = self._wcs._xy(ra, dec, c=0)
+        x, y = self._wcs._xy(ra, dec, c=color)
 
         x += self._wcs.x0
         y += self._wcs.y0
 
+        if is_scalar:
+            x = x[0]
+            y = y[0]
+
         return x, y
 
-    def image2sky(self, col, row):
+    def image2sky(self, col, row, color=0.6):
+        if np.ndim(col) == 0:
+            is_scalar = True
+            col = np.array(col, copy=False, ndmin=1)
+            row = np.array(row, copy=False, ndmin=1)
+
+            if color is not None:
+                color = np.array(color, copy=False, ndmin=1)
+        else:
+            is_scalar = False
+
+        if color is None:
+            color = row*0 + DEFAULT_COLOR 
+
         x = col - self._wcs.x0
         y = row - self._wcs.y0
-        ra, dec = self._wcs._radec(x, y, c=0)
+        ra, dec = self._wcs._radec(x, y, c=color)
         ra = np.degrees(ra)
         dec = np.degrees(dec)
 
+        if is_scalar:
+            ra = ra[0]
+            dec = dec[0]
         return ra, dec
 
-    def get_jacobian(self, x, y):
+    def get_jacobian(self, x, y, color=None):
+
+        if color is None:
+            color = x*0 + DEFAULT_COLOR 
+
         if np.ndim(x) > 0:
             num = len(x)
             dudcol = np.zeros(num)
@@ -1059,21 +1110,22 @@ class GalsimWCSWrapper(object):
             dvdrow = np.zeros(num)
             for i in range(num):
                 tdudcol, tdudrow, tdvdcol, tdvdrow = \
-                    self._get_jacobian(x[i], y[i])
+                    self._get_jacobian(x[i], y[i], color[i])
                 dudcol[i] = tdudcol
                 dudrow[i] = tdudrow
                 dvdcol[i] = tdvdcol
                 dvdrow[i] = tdvdrow
         else:
-            dudcol, dudrow, dvdcol, dvdrow = self._get_jacobian(x, y)
+            dudcol, dudrow, dvdcol, dvdrow = \
+                self._get_jacobian(x, y, color)
 
         return dudcol, dudrow, dvdcol, dvdrow
 
-    def _get_jacobian(self, x, y):
+    def _get_jacobian(self, x, y, color):
         import galsim
 
         pos = galsim.PositionD(x=x, y=y)
-        gs_jac = self._wcs.jacobian(image_pos=pos)
+        gs_jac = self._wcs.jacobian(image_pos=pos, color=color)
 
         dudcol = gs_jac.dudx
         dudrow = gs_jac.dudy
