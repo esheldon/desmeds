@@ -121,6 +121,11 @@ class CoaddSrc(Coadd):
                 info['filename'].replace('immasked.fits','psfexcat.psf')
             )
 
+            if "piff_campaign" in self:
+                info['piff_path'] = os.path.join(
+                    dirdict['piff']['local_dir'],
+                    info['filename'].replace('immasked.fits', 'piff-model.fits')
+                )
 
     def _get_all_dirs(self, info):
         dirs={}
@@ -130,6 +135,8 @@ class CoaddSrc(Coadd):
         dirs['seg']   = self._get_dirs(path, type='seg')
         dirs['bkg']   = self._get_dirs(path, type='bkg')
         dirs['psf']   = self._get_dirs(path, type='psf')
+        if "piff_campaign" in self:
+            dirs['piff'] = self._get_dirs(path, type='piff')
         return dirs
 
     def _extract_alt_dir(self, path, type):
@@ -143,6 +150,9 @@ class CoaddSrc(Coadd):
         OPS/finalcut/Y2A1v3/20161124-r2747/D00596130/p01/red/bkg/
         OPS/finalcut/Y2A1v3/20161124-r2747/D00596130/p01/seg
 
+        for piff we also replace the tag/campaign
+
+        OPS/finalcut/Y6A1_PIFF/20181106-r5023/D00791633/p01/psf/
         """
 
         ps = path.split('/')
@@ -151,10 +161,14 @@ class CoaddSrc(Coadd):
 
         if type=='bkg':
             ps[-1] = type
-        elif type in ['seg','psf']:
+        elif type in ['seg', 'psf', 'piff']:
             ps = ps[0:-1]
             assert ps[-1]=='red'
-            ps[-1] = type
+            ps[-1] = type if type != 'piff' else 'psf'
+
+        if type == 'piff' and 'piff_campaign' in self:
+            assert ps[2] == self['finalcut_campaign']
+            ps[2] = self['piff_campaign']
 
         return '/'.join(ps)
 
@@ -166,6 +180,9 @@ class CoaddSrc(Coadd):
             self['finalcut_campaign']='Y5A1_FINALCUT'
         elif self['campaign']=='Y3A2_COSMOS_COADD_TRUTH_V4':
             self['finalcut_campaign'] = 'COSMOS_COADD_TRUTH'
+        elif self['campaign'] in ("Y6A2_COADD", "Y6A1_COADD"):
+            self['finalcut_campaign'] = "Y6A1_COADD_INPUT"
+            self['piff_campaign'] = "Y6A1_PIFF"
         else:
             raise ValueError("determine finalcut campaign "
                              "for '%s'" % self['campaign'])
@@ -382,7 +399,7 @@ from
     image j,
     proctag tme,
     proctag tse,
-    file_archive_info fai 
+    file_archive_info fai
 where
     tme.tag='{campaign}'
     and tme.pfw_attempt_id=i.pfw_attempt_id
@@ -396,6 +413,3 @@ where
     and fai.filename=j.filename
     --and rownum < 1000
 """
-
-
-
