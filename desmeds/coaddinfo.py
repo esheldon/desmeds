@@ -67,6 +67,7 @@ class Coadd(dict):
             os.makedirs(full_dir)
 
         info=self.get_info()
+        print("found %d SE sources" % (len(info.get("src_info", []))))
 
         self['flist_file']=self._write_download_flist(info)
 
@@ -224,7 +225,6 @@ class Coadd(dict):
             for sinfo in info['src_info']:
                 for type in stypes:
                     tname='%s_path' % type
-
                     if tname in sinfo:
                         fname = sinfo[tname]
 

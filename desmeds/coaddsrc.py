@@ -58,7 +58,7 @@ class CoaddSrc(Coadd):
         get info for the specified tilename and band
         """
 
-        if 'Y5' in self['campaign']:
+        if 'Y5' in self['campaign'] or 'Y6' in self['campaign']:
             query = _QUERY_COADD_SRC_BYTILE_Y5 % self
         elif 'COSMOS' in self['campaign']:
             query = _QUERY_COADD_SRC_BYTILE_Y3A2_COSMOS % self
@@ -85,8 +85,36 @@ class CoaddSrc(Coadd):
                 'pfw_attempt_id':pai,
                 'magzp': magzp,
             }
-
             info_list.append(info)
+
+        if 'Y6' in self['campaign']:
+            imgs = ["'%s'" % info['filename'] for info in info_list]
+            query = _QUERY_COADD_SRC_PIFF_FILES_Y6 % dict(
+                piff_campaign=self['piff_campaign'],
+                imgs=",".join(imgs)
+            )
+
+            print("cutting SE sources to those with piff files")
+            conn = self.get_conn()
+            curs = conn.cursor()
+            curs.execute(query)
+            piff_map = {}
+            for row in curs:
+                im, piff, path, band, expnum, ccdnum = row
+                piff_map[(im, band, expnum, ccdnum)] = (path, piff)
+
+            cut = 0
+            new_info_list = []
+            for info in info_list:
+                key = (info['filename'], info['band'], info['expnum'], info['ccdnum'])
+                if key in piff_map:
+                    info['piff_path'] = os.path.join(piff_map[key][0], piff_map[key][1])
+                    new_info_list.append(info)
+                else:
+                    cut += 1
+
+            print("cut %d SE source for missing piff files" % cut)
+            info_list = new_info_list
 
         return info_list
 
@@ -124,7 +152,7 @@ class CoaddSrc(Coadd):
             if "piff_campaign" in self:
                 info['piff_path'] = os.path.join(
                     dirdict['piff']['local_dir'],
-                    info['filename'].replace('immasked.fits', 'piff-model.fits')
+                    os.path.basename(info['piff_path']),
                 )
 
     def _get_all_dirs(self, info):
@@ -136,7 +164,7 @@ class CoaddSrc(Coadd):
         dirs['bkg']   = self._get_dirs(path, type='bkg')
         dirs['psf']   = self._get_dirs(path, type='psf')
         if "piff_campaign" in self:
-            dirs['piff'] = self._get_dirs(path, type='piff')
+            dirs['piff'] = self._get_dirs(os.path.dirname(info['piff_path']), type='piff')
         return dirs
 
     def _extract_alt_dir(self, path, type):
@@ -155,20 +183,19 @@ class CoaddSrc(Coadd):
         OPS/finalcut/Y6A1_PIFF/20181106-r5023/D00791633/p01/psf/
         """
 
+        if type == "piff":
+            return path
+
         ps = path.split('/')
 
         assert ps[-1]=='immask'
 
         if type=='bkg':
             ps[-1] = type
-        elif type in ['seg', 'psf', 'piff']:
+        elif type in ['seg', 'psf']:
             ps = ps[0:-1]
             assert ps[-1]=='red'
             ps[-1] = type if type != 'piff' else 'psf'
-
-        if type == 'piff' and 'piff_campaign' in self:
-            assert ps[2] == self['finalcut_campaign']
-            ps[2] = self['piff_campaign']
 
         return '/'.join(ps)
 
@@ -296,6 +323,34 @@ where
 order by
     filename
 """
+
+_QUERY_COADD_SRC_PIFF_FILES_Y6 = """
+select
+    d2.filename as redfile,
+    fai.filename as filename,
+    fai.path as path,
+    m.band as band,
+    m.expnum as expnum,
+    m.ccdnum as ccdnum
+from
+    desfile d1,
+    desfile d2,
+    proctag t,
+    opm_was_derived_from wdf,
+    miscfile m,
+    file_archive_info fai
+where
+    d2.filename in (%(imgs)s)
+    and d2.id = wdf.parent_desfile_id
+    and wdf.child_desfile_id = d1.id
+    and d1.filetype = 'piff_model'
+    and d1.pfw_attempt_id = t.pfw_attempt_id
+    and t.tag = '%(piff_campaign)s'
+    and d1.filename = m.filename
+    and d1.id = fai.desfile_id
+    and fai.archive_name = 'desar2home'
+"""
+
 
 _QUERY_COADD_SRC_BYTILE_Y3="""
 select
