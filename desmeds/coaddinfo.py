@@ -67,6 +67,7 @@ class Coadd(dict):
             os.makedirs(full_dir)
 
         info=self.get_info()
+        print("found %d SE sources" % (len(info.get("src_info", []))))
 
         self['flist_file']=self._write_download_flist(info)
 
@@ -119,7 +120,7 @@ class Coadd(dict):
         return _OBJECT_MAP_QUERY % filename
 
     def _get_objmap_dtype(self):
-        return [ 
+        return [
             ('object_number','i4'),
             ('id','i8'),
         ]
@@ -135,7 +136,7 @@ class Coadd(dict):
         """
         get info for the specified tilename and band
         """
-        
+
         query = _QUERY_COADD_TEMPLATE_BYTILE % self
 
         print(query)
@@ -197,7 +198,7 @@ class Coadd(dict):
             The info dict for this tile/band, possibly including
             the src_info
 
-        no_prefix: bool 
+        no_prefix: bool
             If True, the {source_dir} is removed from the front
         """
         #source_dir=os.path.expandvars(self['source_dir'])
@@ -224,13 +225,13 @@ class Coadd(dict):
             for sinfo in info['src_info']:
                 for type in stypes:
                     tname='%s_path' % type
+                    if tname in sinfo:
+                        fname = sinfo[tname]
 
-                    fname = sinfo[tname]
+                        if no_prefix:
+                            fname = fname.replace(source_dir, '')
 
-                    if no_prefix:
-                        fname = fname.replace(source_dir, '')
-
-                    flist.append(fname)
+                        flist.append(fname)
 
         return flist
 
@@ -259,7 +260,7 @@ class Coadd(dict):
         return ['image','cat','seg','psf']
 
     def _get_source_download_types(self):
-        return ['image','bkg','seg','psf','head']
+        return ['image','bkg','seg','psf','head','piff']
 
 
     def _add_src_info(self, info):
@@ -408,7 +409,7 @@ _DOWNLOAD_CMD = r"""
         --password-file $DES_RSYNC_PASSFILE \
         --files-from=%(flist_file)s \
         %(userstring)s${DESREMOTE_RSYNC}/ \
-        %(source_dir)s/ 
+        %(source_dir)s/
 """
 
 _OBJECT_MAP_QUERY = """
