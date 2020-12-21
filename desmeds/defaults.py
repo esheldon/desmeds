@@ -6,13 +6,13 @@ object
 
 """
 
-__version__= "0.9.7"
+__version__= "0.9.9"
 
 # sextractor names
 default_config = {
     # we read the coadd catalog from detband
     'refband':'i',
-    
+
     # types of cutout images to make
     'cutout_types': ['image','weight','seg','bmask'],
 
