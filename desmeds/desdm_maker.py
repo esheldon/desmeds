@@ -227,12 +227,12 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                 assert 'coadd_psf_url' in fd, \
                         'coadd_psf_url must be set of SE psfs are set'
 
-                psf_info = self._read_generic_flist('psf_flist')
+                psf_flist = self._read_generic_flist('psf_flist')
 
-                if len(psf_info) != nepoch:
+                if len(psf_flist) != nepoch:
                     raise ValueError(
                         "psf list has %d elements, source image "
-                        "list has %d elements" % (len(psf_info), nepoch)
+                        "list has %d elements" % (len(psf_flist), nepoch)
                     )
 
             for i, src in enumerate(srclist):
@@ -240,7 +240,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                 src['red_seg'] = seg_info[i]
 
                 if 'psf_flist' in fd:
-                    src['red_psf'] = psf_info[i]
+                    src['red_psf'] = psf_flist[i]
 
             self._verify_src_info(srclist)
 
@@ -263,6 +263,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             self.psf_info = fitsio.read(
                 self.file_dict['psf_info'], lower=True
             )
+            assert 'filename' in self.psf_info.dtype.names
         else:
             self.psf_info = None
 
@@ -274,6 +275,9 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         flist = [src['red_psf'] for src in cf['srclist']]
 
         for f in flist:
+            if self.psf_info is not None:
+                assert os.path.basename(f) in self.psf_info['filename']
+
             psf = self._load_one_psf(f, self['psf']['se'])
             psf_data.append(psf)
 
@@ -1042,7 +1046,9 @@ class PIFFWrapper(dict):
 
         return y, x
 
+
 DEFAULT_COLOR = 0.6
+
 
 class GalsimWCSWrapper(object):
     """
@@ -1066,7 +1072,7 @@ class GalsimWCSWrapper(object):
             is_scalar = False
 
         if color is None:
-            color = ra*0 + DEFAULT_COLOR 
+            color = ra*0 + DEFAULT_COLOR
 
         ra = np.radians(ra)
         dec = np.radians(dec)
@@ -1093,7 +1099,7 @@ class GalsimWCSWrapper(object):
             is_scalar = False
 
         if color is None:
-            color = row*0 + DEFAULT_COLOR 
+            color = row*0 + DEFAULT_COLOR
 
         x = col - self._wcs.x0
         y = row - self._wcs.y0
@@ -1109,7 +1115,7 @@ class GalsimWCSWrapper(object):
     def get_jacobian(self, x, y, color=None):
 
         if color is None:
-            color = x*0 + DEFAULT_COLOR 
+            color = x*0 + DEFAULT_COLOR
 
         if np.ndim(x) > 0:
             num = len(x)
