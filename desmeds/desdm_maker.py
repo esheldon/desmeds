@@ -90,6 +90,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             config=self,
             meta_data=self.meta_data,
             psf_data=self.psf_data,
+            psf_info=self.psf_info,
         )
 
         if fname is None:
@@ -256,6 +257,14 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             'you must set both coadd_psf_url and psf_flist'
 
         assert 'psf' in self, 'you must have a psf entry when loading psfs'
+
+        if 'psf_info' in self.file_dict:
+            print('loading psf info from:', self.file_dict['psf_info'])
+            self.psf_info = fitsio.read(
+                self.file_dict['psf_info'], lower=True
+            )
+        else:
+            self.psf_info = None
 
         psf_data = []
 
