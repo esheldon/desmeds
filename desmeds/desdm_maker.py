@@ -952,20 +952,15 @@ class PIFFWrapper(dict):
     """
     provide an interface consistent with the PSFEx class
     """
-    def __init__(self, psf_path, stamp_size=17, center_psf=True):
+    def __init__(self, psf_path, stamp_size=25):
 
         import piff
-
-        assert center_psf is True
 
         self.piff_obj = piff.read(psf_path)
 
         self['filename'] = psf_path
         self['stamp_size'] = stamp_size
-        self['center_psf'] = center_psf
         self['rec_shape'] = (stamp_size, stamp_size)
-
-        self.center_cache = {}
 
     def get_rec_shape(self, *args):
         return self['rec_shape']
@@ -977,18 +972,15 @@ class PIFFWrapper(dict):
         image is normalized
         """
 
-        y, x, = self._get_yx(row, col)
-
         gsim = self.piff_obj.draw(
-            x=x,
-            y=y,
+            x=col,
+            y=row,
+            center=True,
             stamp_size=self['stamp_size'],
         )
         im = gsim.array
 
         im *= (1.0/im.sum())
-
-        self._cache_center(y, x, im)
 
         return im
 
@@ -996,19 +988,8 @@ class PIFFWrapper(dict):
         """
         get the center location
         """
-        if self['center_psf']:
-            sa = np.array(self.get_rec_shape(row, col))
-            return (sa-1.0)/2.0
-        else:
-
-            y, x, = self._get_yx(row, col)
-            key = self._get_center_cache_key(y, x)
-
-            if key not in self.center_cache:
-                # this will force a cache
-                _ = self.get_rec(row, col)
-
-            return self.center_cache[key]
+        sa = np.array(self.get_rec_shape(row, col))
+        return (sa-1.0)/2.0
 
     def get_sigma(self):
         """
@@ -1018,33 +999,6 @@ class PIFFWrapper(dict):
 
     def get_wcs(self):
         return GalsimWCSWrapper(self.piff_obj.wcs[0])
-
-    def _cache_center(self, row, col, im):
-        """
-        cache the center for the get_center call
-        """
-
-        y, x, = self._get_yx(row, col)
-
-        key = self._get_center_cache_key(y, x)
-
-        # assuming center_psf is True here
-        cen = (np.array(im.shape)-1.0)/2.0
-
-        self.center_cache[key] = cen
-
-    def _get_center_cache_key(self, row, col):
-        return '%.16g-%.16g' % (row, col)
-
-    def _get_yx(self, row, col):
-        if self['center_psf']:
-            x = int(col+0.5)
-            y = int(row+0.5)
-        else:
-            x = col - int(col+0.5)
-            y = row - int(row+0.5)
-
-        return y, x
 
 
 DEFAULT_COLOR = 0.6
