@@ -16,9 +16,10 @@ class Coadd(dict):
     def __init__(self, medsconf,
                  tilename,
                  band,
-                 campaign='Y3A1_COADD',
+                 campaign='Y6A2_COADD',
                  src=None,
-                 sources=None):
+                 sources=None,
+                 piff_campaign="Y6A1_PIFF"):
 
         self['medsconf'] = medsconf
         self['tilename'] = tilename
@@ -31,6 +32,7 @@ class Coadd(dict):
         )
 
         self['campaign'] = campaign.upper()
+        self['piff_campaign'] = piff_campaign.upper()
         self.sources = sources
 
     def get_info(self):
