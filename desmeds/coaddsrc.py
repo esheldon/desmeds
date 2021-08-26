@@ -209,8 +209,6 @@ class CoaddSrc(Coadd):
             self['finalcut_campaign'] = 'COSMOS_COADD_TRUTH'
         elif self['campaign'] in ("Y6A2_COADD", "Y6A1_COADD"):
             self['finalcut_campaign'] = "Y6A1_COADD_INPUT"
-            if "piff_campaign" not in self:
-                self['piff_campaign'] = "Y6A1_PIFF"
         else:
             raise ValueError("determine finalcut campaign "
                              "for '%s'" % self['campaign'])
