@@ -27,6 +27,12 @@ parser.add_argument(
     help=('remove all the generated nullwt files'),
 )
 
+parser.add_argument(
+    '--skip_nullwt',
+    action='store_true',
+    help=('do not generate nullwt files'),
+)
+
 
 if __name__ == '__main__':
 
@@ -36,6 +42,7 @@ if __name__ == '__main__':
         args.medsconf,
         args.tilename,
         args.band,
+        skip_nullwt=args.skip_nullwt,
     )
 
     if args.clean:

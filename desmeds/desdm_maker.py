@@ -370,7 +370,7 @@ class Preparator(dict):
         - write psf map file
         - write file config
     """
-    def __init__(self, medsconf, tilename, band):
+    def __init__(self, medsconf, tilename, band, skip_nullwt=False):
         from .coaddinfo import Coadd
         from .coaddsrc import CoaddSrc
 
@@ -382,6 +382,8 @@ class Preparator(dict):
 
         self['tilename']=tilename
         self['band']=band
+
+        self['skip_nullwt']=skip_nullwt
 
         csrc=CoaddSrc(
             self['medsconf'],
@@ -413,13 +415,16 @@ class Preparator(dict):
 
         self._make_objmap(info)
         self._copy_psfs(info)
-        self._make_nullwt(info)
+        if not self['skip_nullwt']:
+            self._make_nullwt(info)
 
         fileconf=self._write_file_config(info)
-
-        self._write_nullwt_flist(info['src_info'], fileconf)
+        if not self['skip_nullwt']:
+            self._write_nullwt_flist(info['src_info'], fileconf)
         self._write_seg_flist(info['src_info'], fileconf)
         self._write_bkg_flist(info['src_info'], fileconf)
+        self._write_exp_flist(info['src_info'], fileconf)
+        self._write_fcut_flist(info['src_info'], fileconf)
 
     def clean(self):
         """
@@ -477,6 +482,28 @@ class Preparator(dict):
             for sinfo in src_info:
                 fobj.write("%s\n" % sinfo['seg_path'])
 
+    def _write_fcut_flist(self, src_info, fileconf):
+        fname=fileconf['seg_flist'].replace("seg","fcut")
+        print("writing:",fname)
+        with open(fname, 'w') as fobj:
+            for sinfo in src_info:
+                fobj.write("%s %.16g\n" % (sinfo['image_path'], sinfo['magzp'] )) 
+
+    def _write_exp_flist(self, src_info, fileconf):
+        fname=fileconf['seg_flist'].replace("seg","exp")
+        print("writing:",fname)
+        with open(fname, 'w') as fobj:
+            exp_dict={}
+            for sinfo in src_info:
+                im_path = os.path.normpath(sinfo['image_path'])
+                im_dir,im_file = os.path.dirname(im_path), os.path.basename(im_path)
+                if im_dir in exp_dict:
+                    continue
+                exp_dict[im_dir] = im_file[:im_file.index('_c')]+"_c??"+im_file[im_file.index('_c')+4:]
+
+            for d,f in exp_dict.items():
+                fobj.write("%s %s\n" % (d,f))
+
     def _write_bkg_flist(self, src_info, fileconf):
         fname=fileconf['bkg_flist']
         print("writing:",fname)
@@ -511,8 +538,6 @@ class Preparator(dict):
             self['tilename'],
             self['band'],
         )
-
-
         meds_file=files.get_meds_file(
             self['medsconf'],
             self['tilename'],
@@ -536,7 +561,7 @@ class Preparator(dict):
 
         print("writing file config:",fname)
         with open(fname,'w') as fobj:
-            for key,value in output.iteritems():
+            for key,value in output.items():
                 if key=="coadd_magzp":
                     value = '%.16g' % value
 

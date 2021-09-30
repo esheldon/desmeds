@@ -70,7 +70,7 @@ class Coadd(dict):
             self['userstring'] = ''
 
         cmd=_DOWNLOAD_CMD % self
-
+        print("rsync command: %s", cmd)
         try:
             subprocess.check_call(cmd,shell=True)
         finally:

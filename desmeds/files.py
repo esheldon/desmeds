@@ -212,6 +212,7 @@ def get_meds_base():
     The base directory $DESDATA/meds
     """
     dir = os.environ['MEDS_DIR']
+    print("dir in get_meds_base:",dir)
     if dir[-1] == '/':
         dir = dir[0:-1]
     return dir
@@ -961,7 +962,7 @@ def get_temp_dir():
 def try_remove(fname, ntry=2, sleep_time=2):
     import time
     
-    for i in xrange(ntry):
+    for i in range(ntry):
         try:
             os.remove(fname)
             break
