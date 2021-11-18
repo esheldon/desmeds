@@ -474,7 +474,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         print("reading full coaddinfo:", fname)
         with open(fname) as fobj:
-            ci = yaml.load(fobj)
+            ci = yaml.safe_load(fobj)
 
         if self['source_type'] == 'nullwt':
             # refined astrometry already present
@@ -589,7 +589,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             conf = medsconf
         else:
             with open(medsconf) as fobj:
-                conf = yaml.load(fobj)
+                conf = yaml.safe_load(fobj)
 
         util.check_for_required_config(conf, ['medsconf', 'source_type'])
         self.update(conf)
@@ -634,7 +634,7 @@ class Preparator(dict):
         - write psf map file
         - write file config
     """
-    def __init__(self, medsconf, tilename, band):
+    def __init__(self, medsconf, tilename, band, no_temp=False):
         from .coaddinfo import Coadd
         from .coaddsrc import CoaddSrc
 
@@ -647,11 +647,18 @@ class Preparator(dict):
         self['tilename'] = tilename
         self['band'] = band
 
+        if self.get("piff_campaign", None) is not None:
+            kwargs = {"piff_campaign": self.get("piff_campaign", None)}
+        else:
+            kwargs = {}
+
         csrc = CoaddSrc(
             self['medsconf'],
             self['tilename'],
             self['band'],
             campaign=self['campaign'],
+            no_temp=no_temp,
+            **kwargs,
         )
 
         self.coadd = Coadd(
@@ -660,6 +667,8 @@ class Preparator(dict):
             self['band'],
             campaign=self['campaign'],
             sources=csrc,
+            no_temp=no_temp,
+            **kwargs,
         )
         self['nullwt_dir'] = files.get_nullwt_dir(
             self['medsconf'],
@@ -736,16 +745,14 @@ class Preparator(dict):
             self['band'],
         )
         fname = expandvars(fname)
-        if not os.path.exists(fname):
+        dir = os.path.dirname(fname)
+        if not os.path.exists(dir):
+            print("making directory:", dir)
+            os.makedirs(dir)
 
-            dir = os.path.dirname(fname)
-            if not os.path.exists(dir):
-                print("making directory:", dir)
-                os.makedirs(dir)
-
-            objmap = self.coadd.get_objmap(info)
-            print("writing objmap:", fname)
-            fitsio.write(fname, objmap, extname='OBJECTS', clobber=True)
+        objmap = self.coadd.get_objmap(info)
+        print("writing objmap:", fname)
+        fitsio.write(fname, objmap, extname='OBJECTS', clobber=True)
 
     def _write_finalcut_flist(self, src_info, fileconf):
         fname = expandvars(fileconf['finalcut_flist'])
