@@ -273,24 +273,32 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         psf_data.append(psf)
 
         flist = [src['red_psf'] for src in cf['srclist']]
+        ccdnums = [src['ccdnum'] for src in cf['srclist']]
+        bands = [src['band'] for src in cf['srclist']]
 
-        for f in flist:
+        for f, ccdnum, band in zip(flist, ccdnums, bands):
             if self.psf_info is not None:
                 assert os.path.basename(f) in self.psf_info['filename']
 
-            psf = self._load_one_psf(f, self['psf']['se'])
+            if self['psf']['se'].get("use_color", False):
+                psf = self._load_one_psf(
+                    f, self['psf']['se'], ccdnum=ccdnum, band=band
+                )
+            else:
+                psf = self._load_one_psf(f, self['psf']['se'])
+
             psf_data.append(psf)
 
         return psf_data
 
-    def _load_one_psf(self, f, conf):
+    def _load_one_psf(self, f, conf, ccdnum=None, band=None):
         """
         load a psf of the given type
         """
         if conf['type'] == 'psfex':
             return self._load_one_psfex(f)
         elif conf['type'] == 'piff':
-            return self._load_one_piff(f, conf)
+            return self._load_one_piff(f, conf, ccdnum=ccdnum, band=band)
         else:
             raise ValueError('only psfex or piff supported')
 
@@ -302,12 +310,31 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         print('loading psfex data:', f)
         return psfex.PSFEx(f)
 
-    def _load_one_piff(self, f, conf):
+    def _load_one_piff(self, f, conf, ccdnum=None, band=None):
         """
         load a single psf
         """
         print('loading piff data:', f)
-        return PIFFWrapper(f, stamp_size=conf['stamp_size'])
+        if band is not None:
+            if band in ["g", "r", "i"]:
+                color_name = "GI_COLOR"
+            else:
+                color_name = "IZ_COLOR"
+        else:
+            color_name = None
+        print(
+            '    setting piff ccdnum|color_name|band:',
+            ccdnum,
+            color_name,
+            band,
+        )
+
+        return PIFFWrapper(
+            f,
+            stamp_size=conf['stamp_size'],
+            ccdnum=ccdnum,
+            color_name=color_name,
+        )
 
     def _verify_src_info(self, srclist):
         """
@@ -495,7 +522,8 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         dt = [
             ('object_number', 'i4'),
             ('coadd_objects_id', 'i8'),
-            ('color', 'f4'),
+            ('wcs_color', 'f4'),
+            ('psf_color', 'f4'),
         ]
 
         nobj = self.coadd_cat.size
@@ -511,17 +539,30 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         iddata['object_number'] = idmap['object_number'][s]
         iddata['coadd_objects_id'] = idmap['id'][s]
 
+        # pixmappy always uses g-i
         gmi = idmap['gi_color'][s].copy()
         w, = numpy.where(
-            (gmi < -1)
+            (gmi < 0)
             |
             (gmi > 3)
         )
         if w.size > 0:
-            gmi[w] = 0.6
+            gmi[w] = 0.61
+        iddata['wcs_color'] = gmi
 
-        iddata['color'] = gmi
-        # iddata['color'] = idmap['gi_color'][s].clip(min=-1, max=3)
+        # piff in gri uses g-i, uses i-z in zY
+        if self.file_dict["band"].lower() in ["g", "r", "i"]:
+            iddata["psf_color"] = iddata["wcs_color"]
+        else:
+            imz = idmap['iz_color'][s].copy()
+            w, = numpy.where(
+                (imz < 0)
+                |
+                (imz > 0.7)
+            )
+            if w.size > 0:
+                imz[w] = 0.34
+            iddata['psf_color'] = imz
 
         return iddata
 
@@ -952,7 +993,7 @@ class PIFFWrapper(dict):
     """
     provide an interface consistent with the PSFEx class
     """
-    def __init__(self, psf_path, stamp_size=25):
+    def __init__(self, psf_path, color_name=None, ccdnum=None, stamp_size=25):
 
         import piff
 
@@ -961,22 +1002,35 @@ class PIFFWrapper(dict):
         self['filename'] = psf_path
         self['stamp_size'] = stamp_size
         self['rec_shape'] = (stamp_size, stamp_size)
+        self.color_name = color_name
+        self.ccdnum = ccdnum
 
-    def get_rec_shape(self, *args):
+    def get_rec_shape(self, *args, **kwargs):
         return self['rec_shape']
 
-    def get_rec(self, row, col):
+    def get_rec(self, row, col, color=None):
         """
         get the psf reconstruction as a numpy array
 
         image is normalized
         """
 
+        if self.color_name is not None:
+            kwargs = {
+                self.color_name: color
+            }
+        else:
+            kwargs = {}
+
+        if self.ccdnum is not None:
+            kwargs["ccdnum"] = self.ccdnum
+
         gsim = self.piff_obj.draw(
             x=col,
             y=row,
             center=True,
             stamp_size=self['stamp_size'],
+            **kwargs,
         )
         im = gsim.array
 
@@ -998,10 +1052,14 @@ class PIFFWrapper(dict):
         return np.sqrt(4.0/2.0)
 
     def get_wcs(self):
-        return GalsimWCSWrapper(self.piff_obj.wcs[0])
+        if self.ccdnum is not None:
+            return GalsimWCSWrapper(self.piff_obj.wcs[self.ccdnum])
+        else:
+            return GalsimWCSWrapper(self.piff_obj.wcs[0])
 
 
-DEFAULT_COLOR = 0.6
+# default G-I color for pixmappy
+DEFAULT_COLOR = 0.61
 
 
 class GalsimWCSWrapper(object):
@@ -1041,7 +1099,7 @@ class GalsimWCSWrapper(object):
 
         return x, y
 
-    def image2sky(self, col, row, color=0.6):
+    def image2sky(self, col, row, color=None):
         if np.ndim(col) == 0:
             is_scalar = True
             col = np.array(col, copy=False, ndmin=1)
