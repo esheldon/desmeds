@@ -82,8 +82,7 @@ class Coadd(dict):
         cmd = _DOWNLOAD_CMD % self
 
         try:
-            # subprocess.check_call(cmd, shell=True)
-            subprocess.run(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
         finally:
             files.try_remove_timeout(self['flist_file'])
 
