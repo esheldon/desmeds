@@ -87,7 +87,11 @@ class CoaddSrc(Coadd):
             }
             info_list.append(info)
 
-        if 'Y6' in self['campaign']:
+        if (
+            'Y6' in self['campaign']
+            and "piff_campaign" in self
+            and self["piff_campaign"] is not None
+        ):
             imgs = ["'%s'" % info['filename'] for info in info_list]
             query = _QUERY_COADD_SRC_PIFF_FILES_Y6 % dict(
                 piff_campaign=self['piff_campaign'],
@@ -149,7 +153,7 @@ class CoaddSrc(Coadd):
                 info['filename'].replace('immasked.fits','psfexcat.psf')
             )
 
-            if "piff_campaign" in self:
+            if "piff_campaign" in self and self["piff_campaign"] is not None:
                 info['piff_path'] = os.path.join(
                     dirdict['piff']['local_dir'],
                     os.path.basename(info['piff_path']),
@@ -163,7 +167,7 @@ class CoaddSrc(Coadd):
         dirs['seg']   = self._get_dirs(path, type='seg')
         dirs['bkg']   = self._get_dirs(path, type='bkg')
         dirs['psf']   = self._get_dirs(path, type='psf')
-        if "piff_campaign" in self:
+        if "piff_campaign" in self and self["piff_campaign"] is not None:
             dirs['piff'] = self._get_dirs(os.path.dirname(info['piff_path']), type='piff')
         return dirs
 
