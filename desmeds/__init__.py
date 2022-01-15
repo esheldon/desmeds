@@ -11,3 +11,6 @@ from . import util
 from . import blacklists
 from . import defaults
 from . import batch
+
+from . import coadd
+from .coadd import DESMEDSCoadder, DESMEDSCoaddMaker

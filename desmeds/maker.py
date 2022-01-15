@@ -9,10 +9,12 @@ TODO:
     - put a try/except guard around imports not used for the DESDM interface
 """
 from __future__ import print_function
+from functools import reduce
 import os
 from os.path import basename
 import numpy
 from numpy import zeros, sqrt, log, vstack, array
+from numpy import pi as PI
 import json
 import yaml
 
@@ -28,7 +30,6 @@ from meds.util import \
 from . import blacklists
 from . import util
 
-from . import util
 from . import files
 
 from . import defaults
@@ -47,6 +48,7 @@ except ImportError:
 
 
 fwhm_fac = 2*sqrt(2*log(2))
+
 
 class DESMEDSMaker(dict):
     """
@@ -102,17 +104,19 @@ class DESMEDSMaker(dict):
 
         if self.do_meds:
             self._load_stubby_meds()
-            self._write_meds_file() # does second pass to write data
+            self._write_meds_file()  # does second pass to write data
 
     def _read_coadd_cat(self):
         """
         read the DESDM coadd catalog, sorting by the number field (which
         should already be the case)
         """
-        fname=self.df.url(type='coadd_cat',
-                          coadd_run=self['coadd_run'],
-                          band=self['refband'],
-                          tilename=self['tilename'])
+        fname = self.df.url(
+            type='coadd_cat',
+            coadd_run=self['coadd_run'],
+            band=self['refband'],
+            tilename=self['tilename'],
+        )
         print('reading coadd cat:',fname)
         self.coadd_cat = fitsio.read(fname, lower=True)
 
@@ -228,12 +232,12 @@ class DESMEDSMaker(dict):
         return scale
 
     def _get_ext_len(self):
-        if isinstance(self['coadd_image_ext'],basestring):
+        if not _isnum(self['coadd_image_ext']):
             lens=[]
             for key in self:
                 if '_ext' in key:
                     ext=self[key]
-                    if not isinstance(ext, basestring):
+                    if _isnum(ext):
                         raise ValueError("ext %s not a string, "
                                          "if one ext is a string, all "
                                          "must be" % ext)
@@ -305,7 +309,13 @@ class DESMEDSMaker(dict):
         wcs_json = []
         wcs_json.append(json.dumps(util.fitsio_header_to_dict(coadd_wcs)))
         for s in srclist:
-            wcs_json.append(json.dumps(s['wcs_header']))
+            if s['wcs_header'] is None:
+                d = {}
+            else:
+                d = json.dumps(util.fitsio_header_to_dict(s['wcs_header']))
+
+            wcs_json.append(d)
+
         return wcs_json
 
     def _get_srclist(self):
@@ -352,6 +362,8 @@ class DESMEDSMaker(dict):
             ('medsconf','S%d' % len(self['medsconf'])),
             ('config','S%d' % len(cfg)),
             ('desmeds_version','S%d' % len(defaults.__version__)),
+            ('band','S1'),
+            ('tilename','S12'),
         ]
         return dt
 
@@ -370,6 +382,8 @@ class DESMEDSMaker(dict):
         meta_data['medsconf'] = self['medsconf']
         meta_data['config'] = cfg
         meta_data['desmeds_version'] = defaults.__version__
+        meta_data['band'] = self.file_dict['band']
+        meta_data['tilename'] = self.file_dict['tilename']
 
         self.meta_data = meta_data
 
@@ -465,6 +479,18 @@ class DESMEDSMaker(dict):
         self.obj_data['input_row'] = pos['zrow']
         self.obj_data['input_col'] = pos['zcol']
 
+        self.obj_data['flags']    = self.coadd_cat[self['flags_name']]
+        self.obj_data['flux']     = self.coadd_cat[self['flux_name']]
+        self.obj_data['flux_err'] = self.coadd_cat[self['fluxerr_name']]
+        self.obj_data['x2']       = self.coadd_cat[self['x2_name']]
+        self.obj_data['x2_err']   = self.coadd_cat[self['x2err_name']]
+        self.obj_data['y2']       = self.coadd_cat[self['y2_name']]
+        self.obj_data['y2_err']   = self.coadd_cat[self['y2err_name']]
+
+
+        iso_area = self.coadd_cat[self['isoarea_name']].clip(min=1)
+        self.obj_data['iso_radius'] = sqrt(iso_area/PI)
+
         # required
         self.obj_data['box_size'] = self._get_box_sizes()
 
@@ -478,12 +504,26 @@ class DESMEDSMaker(dict):
 
         # required
         self.obj_data['id'] = iddata['coadd_objects_id']
+        self.obj_data['color'] = iddata['color']
 
         # get ra,dec
         coadd_hdr = fitsio.read_header(self.cf_refband['image_url'],
                                        ext=self['coadd_image_ext'])
         coadd_wcs = eu.wcsutil.WCS(coadd_hdr)
-        ra,dec = coadd_wcs.image2sky(pos['wcs_col'], pos['wcs_row'])
+
+        if 'color' in self.obj_data.dtype.names:
+            color = self.obj_data['color']
+        else:
+            color = None
+
+
+        ra, dec = _image2sky_func(
+            coadd_wcs,
+            pos['wcs_col'],
+            pos['wcs_row'],
+            color=color,
+        )
+
         self.obj_data['ra'] = ra
         self.obj_data['dec'] = dec
 
@@ -642,8 +682,17 @@ class DESMEDSMaker(dict):
 
         self['extra_obj_data_fields'] = [
             ('number','i8'),
+            ('flags','i4'),
+            ('iso_radius','f4'),
+            ('flux','f4'),
+            ('flux_err','f4'),
+            ('x2','f4'),
+            ('x2_err','f4'),
+            ('y2','f4'),
+            ('y2_err','f4'),
             ('input_row','f8'),
             ('input_col','f8'),
+            ('color', 'f4'),
         ]
 
         # -qz 4.0 instead of -q 4.0
@@ -668,4 +717,22 @@ class DESMEDSMaker(dict):
 
         self.update(conf)
 
+def _isnum(val):
+    try:
+        tmp = val + 2
+        ret=True
+    except TypeError:
+        ret=False
 
+    return ret
+
+def _image2sky_func(wcs, x, y, color=None):
+    if color is not None:
+        try:
+            res = wcs.image2sky(x, y, color=color)
+            print('used color in image2sky')
+        except TypeError:
+            res = wcs.image2sky(x, y)
+    else:
+        res = wcs.image2sky(x, y)
+    return res

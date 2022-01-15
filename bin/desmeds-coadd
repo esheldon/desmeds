@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+"""
+Coadd the observations in the given MEDS file. Also coadd
+the PSFs
+
+If you wish to make the original MEDS file and the coadd,
+see desmeds-make-and-coadd
+"""
+from __future__ import print_function
+import os
+import yaml
+import desmeds
+import meds
+
+from argparse import ArgumentParser
+parser=ArgumentParser()
+
+parser.add_argument('medsconf',help='configuration file or identifier')
+parser.add_argument('meds_file',help='MEDS file for coadding')
+parser.add_argument('psfmap_file',help='psf map file for given MEDS file')
+parser.add_argument('seed',type=int,
+                    help='seed for rng when making noise images')
+parser.add_argument('output_file',
+                    help='name for output file')
+
+parser.add_argument('--obj-range',
+                    help='range of objects to process, for testing')
+parser.add_argument('--tmpdir',default=None,
+                    help='temporary directory for files')
+
+parser.add_argument('--make-plots',action='store_true',
+                    help='make plots of each epoch and the coadd')
+
+
+def main():
+    args=parser.parse_args()
+
+    config=desmeds.files.read_meds_config(args.medsconf)
+    #with open(args.config_file) as fobj:
+    #    config=yaml.load(fobj)
+
+    obj_range = args.obj_range
+    if obj_range is not None:
+        obj_range=[int(x) for x in args.obj_range.split(',')]
+
+    meds_obj = meds.MEDS(args.meds_file)
+
+    psfmap = desmeds.util.load_psfmap(args.psfmap_file)
+    coadder=desmeds.DESMEDSCoadder(
+        config,
+        meds_obj,
+        psfmap,
+        args.seed,
+        make_plots=args.make_plots,
+    )
+
+    maker=desmeds.DESMEDSCoaddMaker(config, coadder,tmpdir=args.tmpdir)
+    maker.write(args.output_file, obj_range=obj_range)
+
+
+if __name__=="__main__":
+    main()

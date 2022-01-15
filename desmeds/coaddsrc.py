@@ -2,6 +2,7 @@ from __future__ import print_function
 import os
 import shutil
 import tempfile
+import hashlib
 import numpy
 import fitsio
 
@@ -26,6 +27,9 @@ class CoaddSrc(Coadd):
         else:
             info_list = self._do_query()
 
+            # sort the list to make code stable
+            info_list = self._sort_list(info_list)
+
             # add full path info
             self._add_full_paths(info_list)
 
@@ -33,12 +37,33 @@ class CoaddSrc(Coadd):
 
         return info_list
 
+    def _sort_list(self, info_list):
+        """
+        sort the list to make class stable against random return order
+        from the database
+        """
+
+        # build hashes and sort
+        hashes = []
+        for i in range(len(info_list)):
+            hash_str = "%s%s" % (
+                info_list[i]['expnum'],
+                info_list[i]['ccdnum'])
+            hashes.append(hashlib.md5(hash_str.encode('utf-8')).hexdigest())
+        inds = numpy.argsort(hashes)
+        return [info_list[i] for i in inds]
+
     def _do_query(self):
         """
         get info for the specified tilename and band
         """
 
-        query = _QUERY_COADD_SRC_BYTILE % self
+        if 'Y5' in self['campaign'] or 'Y6' in self['campaign']:
+            query = _QUERY_COADD_SRC_BYTILE_Y5 % self
+        elif 'COSMOS' in self['campaign']:
+            query = _QUERY_COADD_SRC_BYTILE_Y3A2_COSMOS % self
+        else:
+            query = _QUERY_COADD_SRC_BYTILE_Y3 % self
 
         print(query)
         conn = self.get_conn()
@@ -48,9 +73,11 @@ class CoaddSrc(Coadd):
         info_list=[]
 
         for row in curs:
-            tile,path,fname,comp,band,pai,magzp = row
+            tile,expnum,ccdnum,path,fname,comp,band,pai,magzp = row
             info = {
                 'tilename':tile,
+                'expnum':expnum,
+                'ccdnum':ccdnum,
                 'filename':fname,
                 'compression':comp,
                 'path':path,
@@ -58,8 +85,40 @@ class CoaddSrc(Coadd):
                 'pfw_attempt_id':pai,
                 'magzp': magzp,
             }
-
             info_list.append(info)
+
+        if (
+            'Y6' in self['campaign']
+            and "piff_campaign" in self
+            and self["piff_campaign"] is not None
+        ):
+            imgs = ["'%s'" % info['filename'] for info in info_list]
+            query = _QUERY_COADD_SRC_PIFF_FILES_Y6 % dict(
+                piff_campaign=self['piff_campaign'],
+                imgs=",".join(imgs)
+            )
+
+            print("cutting SE sources to those with piff files")
+            conn = self.get_conn()
+            curs = conn.cursor()
+            curs.execute(query)
+            piff_map = {}
+            for row in curs:
+                im, piff, path, band, expnum, ccdnum = row
+                piff_map[(im, band, expnum, ccdnum)] = (path, piff)
+
+            cut = 0
+            new_info_list = []
+            for info in info_list:
+                key = (info['filename'], info['band'], info['expnum'], info['ccdnum'])
+                if key in piff_map:
+                    info['piff_path'] = os.path.join(piff_map[key][0], piff_map[key][1])
+                    new_info_list.append(info)
+                else:
+                    cut += 1
+
+            print("cut %d SE source for missing piff files" % cut)
+            info_list = new_info_list
 
         return info_list
 
@@ -94,6 +153,11 @@ class CoaddSrc(Coadd):
                 info['filename'].replace('immasked.fits','psfexcat.psf')
             )
 
+            if "piff_campaign" in self and self["piff_campaign"] is not None:
+                info['piff_path'] = os.path.join(
+                    dirdict['piff']['local_dir'],
+                    os.path.basename(info['piff_path']),
+                )
 
     def _get_all_dirs(self, info):
         dirs={}
@@ -103,6 +167,8 @@ class CoaddSrc(Coadd):
         dirs['seg']   = self._get_dirs(path, type='seg')
         dirs['bkg']   = self._get_dirs(path, type='bkg')
         dirs['psf']   = self._get_dirs(path, type='psf')
+        if "piff_campaign" in self and self["piff_campaign"] is not None:
+            dirs['piff'] = self._get_dirs(os.path.dirname(info['piff_path']), type='piff')
         return dirs
 
     def _extract_alt_dir(self, path, type):
@@ -116,7 +182,13 @@ class CoaddSrc(Coadd):
         OPS/finalcut/Y2A1v3/20161124-r2747/D00596130/p01/red/bkg/
         OPS/finalcut/Y2A1v3/20161124-r2747/D00596130/p01/seg
 
+        for piff we also replace the tag/campaign
+
+        OPS/finalcut/Y6A1_PIFF/20181106-r5023/D00791633/p01/psf/
         """
+
+        if type == "piff":
+            return path
 
         ps = path.split('/')
 
@@ -124,18 +196,23 @@ class CoaddSrc(Coadd):
 
         if type=='bkg':
             ps[-1] = type
-        elif type in ['seg','psf']:
+        elif type in ['seg', 'psf']:
             ps = ps[0:-1]
             assert ps[-1]=='red'
-            ps[-1] = type
+            ps[-1] = type if type != 'piff' else 'psf'
 
         return '/'.join(ps)
 
     def _set_finalcut_campaign(self):
-        if self['campaign']=='Y3A1_COADD':
+        y3list=('Y3A1_COADD', 'Y3A2_COADD', )
+        if self['campaign'] in y3list:
             self['finalcut_campaign']='Y3A1_FINALCUT'
-        elif self['campaign']=='Y3A2_COADD':
-            self['finalcut_campaign']='Y3A1_FINALCUT'
+        elif self['campaign']=='Y5A1_COADD':
+            self['finalcut_campaign']='Y5A1_FINALCUT'
+        elif self['campaign']=='Y3A2_COSMOS_COADD_TRUTH_V4':
+            self['finalcut_campaign'] = 'COSMOS_COADD_TRUTH'
+        elif self['campaign'] in ("Y6A2_COADD", "Y6A1_COADD"):
+            self['finalcut_campaign'] = "Y6A1_COADD_INPUT"
         else:
             raise ValueError("determine finalcut campaign "
                              "for '%s'" % self['campaign'])
@@ -147,178 +224,6 @@ class CoaddSrc(Coadd):
         raise NotImplementedError("use Coadd to remove")
 
 
-'''
-class CoaddSrcCache(CoaddCache):
-    """
-    cache to hold path info for the sources of all
-    coadds in the given campaign
-    """
-    def __init__(self, campaign='Y3A1_COADD'):
-        self.campaign=campaign.upper()
-        self._set_finalcut_campaign()
-
-    def get_info(self, tilename, band):
-        """
-        get info for the specified tilename and band
-        """
-
-        query = _QUERY_COADD_SRC_BYTILE.format(
-            campaign=self.campaign,
-            finalcut_campaign=self.finalcut_campaign,
-            tilename=tilename,
-            band=band,
-        )
-
-        print(query)
-        conn=self.get_conn()
-        curs = conn.cursor()
-        curs.execute(query)
-
-        info_list=[]
-
-        for row in curs:
-            tile,path,fname,comp,band,pai,magzp = row
-            info = {
-                'tilename':tile,
-                'filename':fname,
-                'compression':comp,
-                'path':path,
-                'band':band,
-                'pfw_attempt_id':pai,
-                'magzp': magzp,
-            }
-
-            info_list.append(info)
-
-        return info_list
-
-
-    def get_info_old(self, tilename, band):
-        """
-        get info for the specified tilename and band
-        """
-        cache=self.get_data()
-
-        key = make_cache_key(tilename, band)
-        w,=numpy.where(cache['key']==key)
-
-        if w.size == 0:
-            raise ValueError("tilename '%s' and band '%s' "
-                             "not found" % (tilename,band))
-
-        entries=[]
-
-        for i in w:
-            c=cache[i]
-
-            tilename=c['tilename'].strip()
-            path=c['path'].strip()
-            filename=c['filename'].strip()
-            band=c['band'].strip()
-            comp=c['compression'].strip()
-
-            entry = {
-                'tilename':tilename,
-                'filename':filename,
-                'compression':comp,
-                'path':path,
-                'band':band,
-                'pfw_attempt_id':c['pfw_attempt_id'],
-
-                # need to add this to the cache
-                'magzp': 30.0,
-            }
-
-            entries.append(entry)
-
-
-        return entries
-
-    def get_data(self):
-        """
-        get the full cache data
-        """
-        if not hasattr(self,'_cache'):
-            self.load_cache()
-        return self._cache
-
-    def load_cache(self):
-        """
-        load the cache into memory
-        """
-
-        fname=self.get_filename()
-        zp_fname=self.get_zp_filename()
-        if not os.path.join(fname):
-            self.make_cache()
-
-        print("loading cache:",fname)
-        self._cache=fitsio.read(fname)
-        self._cache['filename'] = \
-                numpy.char.rstrip(self._cache['filename'])
-        print("loading zp cache:",fname)
-        self._zp_cache = fitsio.read(zp_filename)
-        self._zp_cache['imagename'] = \
-                numpy.char.rstrip(self._zp_cache['imagename'])
-
-    def get_filename(self):
-        """
-        path to the cache
-        """
-        return files.get_coadd_src_cache_file(self.campaign)
-
-    def get_zp_filename(self):
-        """
-        path to the cache
-        """
-        return files.get_zp_cache_file(self.campaign)
-
-
-    def _get_query(self):
-        query = _QUERY_COADD_SRC.format(
-            campaign=self.campaign,
-            finalcut_campaign=self.finalcut_campaign,
-        )
-        return query
-
-    def make_zp_cache(self):
-        """
-        cache all the relevant information for this campaign
-        """
-
-        fname=self.get_zp_filename()
-
-        print("writing to:",fname)
-        query = _ZP_QUERY
-        curs = self._doquery(query)
-
-        dt=self._get_zp_dtype()
-
-        info=numpy.fromiter(curs, dtype=dt)
-
-        print("writing to:",fname)
-        fitsio.write(fname, info, clobber=True)
-
-
-    def _get_dtype(self):
-        dt = super(CoaddSrcCache,self)._get_dtype()
-        dt += [('magzp','f8')]
-        return dt
-
-    def _get_zp_dtype(self):
-        return [
-            ('imagename','S40'),
-            ('magzp','f8'),
-        ]
-
-    def _set_finalcut_campaign(self):
-        if self.campaign=='Y3A1_COADD':
-            self.finalcut_campaign='Y3A1_FINALCUT'
-        else:
-            raise ValueError("determine finalcut campaign "
-                             "for '%s'" % self.campaig)
-
-'''
 #select imagename, mag_zero from ZEROPOINT where IMAGENAME='D00504555_z_c41_r2378p01_immasked.fits' and source='FGCM' and version='v2.0';
 
 _QUERY_COADD_SRC="""
@@ -355,9 +260,106 @@ where
     -- and rownum < 1000
 """
 
-_QUERY_COADD_SRC_BYTILE="""
+_QUERY_COADD_SRC_BYTILE_Y5_old="""
 select
     i.tilename,
+    fai.path,
+    j.filename as filename,
+    fai.compression,
+    j.band as band,
+    i.pfw_attempt_id,
+    i.mag_zero as magzp
+from
+    image i,
+    image j,
+    proctag tme,
+    proctag tse,
+    file_archive_info fai
+where
+    tme.tag='%(campaign)s'
+    and tme.pfw_attempt_id=i.pfw_attempt_id
+    and i.filetype='coadd_nwgint'
+    and i.tilename='%(tilename)s'
+    and i.band='%(band)s'
+    and i.expnum=j.expnum
+    and i.ccdnum=j.ccdnum
+    and j.filetype='red_immask'
+    and j.pfw_attempt_id=tse.pfw_attempt_id
+    and tse.tag='%(finalcut_campaign)s'
+    and fai.filename=j.filename
+order by
+    filename
+"""
+
+_QUERY_COADD_SRC_BYTILE_Y5="""
+select
+    i.tilename,
+    i.expnum,
+    i.ccdnum,
+    fai.path,
+    j.filename as filename,
+    fai.compression,
+    j.band as band,
+    i.pfw_attempt_id,
+    i.mag_zero as magzp
+from
+    image i,
+    image j,
+    proctag tme,
+    pfw_attempt_val av,
+    proctag tse,
+    file_archive_info fai
+where
+    tme.tag='%(campaign)s'
+    and tme.pfw_attempt_id=av.pfw_attempt_id
+    and av.key='tilename'
+    and av.val='%(tilename)s'
+    and av.pfw_attempt_id=i.pfw_attempt_id
+    and i.filetype='coadd_nwgint'
+    and i.band='%(band)s'
+    and i.expnum=j.expnum
+    and i.ccdnum=j.ccdnum
+    and j.filetype='red_immask'
+    and j.pfw_attempt_id=tse.pfw_attempt_id
+    and tse.tag='%(finalcut_campaign)s'
+    and fai.filename=j.filename
+order by
+    filename
+"""
+
+_QUERY_COADD_SRC_PIFF_FILES_Y6 = """
+select
+    d2.filename as redfile,
+    fai.filename as filename,
+    fai.path as path,
+    m.band as band,
+    m.expnum as expnum,
+    m.ccdnum as ccdnum
+from
+    desfile d1,
+    desfile d2,
+    proctag t,
+    opm_was_derived_from wdf,
+    miscfile m,
+    file_archive_info fai
+where
+    d2.filename in (%(imgs)s)
+    and d2.id = wdf.parent_desfile_id
+    and wdf.child_desfile_id = d1.id
+    and d1.filetype = 'piff_model'
+    and d1.pfw_attempt_id = t.pfw_attempt_id
+    and t.tag = '%(piff_campaign)s'
+    and d1.filename = m.filename
+    and d1.id = fai.desfile_id
+    and fai.archive_name = 'desar2home'
+"""
+
+
+_QUERY_COADD_SRC_BYTILE_Y3="""
+select
+    i.tilename,
+    i.expnum,
+    i.ccdnum,
     fai.path,
     j.filename as filename,
     fai.compression,
@@ -375,17 +377,56 @@ where
     tme.tag='%(campaign)s'
     and tme.pfw_attempt_id=i.pfw_attempt_id
     and i.filetype='coadd_nwgint'
+    and i.band='%(band)s'
     and i.tilename='%(tilename)s'
     and i.expnum=j.expnum
     and i.ccdnum=j.ccdnum
     and j.filetype='red_immask'
     and j.pfw_attempt_id=tse.pfw_attempt_id
-    and j.band='%(band)s'
     and tse.tag='%(finalcut_campaign)s'
     and fai.filename=j.filename
     and z.imagename = j.filename
     and z.source='FGCM'
     and z.version='v2.0'
+order by
+    filename
+"""
+
+_QUERY_COADD_SRC_BYTILE_Y3A2_COSMOS = """
+select
+    i.tilename,
+    i.expnum,
+    i.ccdnum,
+    fai.path,
+    j.filename as filename,
+    fai.compression,
+    j.band as band,
+    i.pfw_attempt_id,
+    z.mag_zero as magzp
+from
+    image i,
+    image j,
+    proctag tme,
+    proctag tse,
+    file_archive_info fai,
+    zeropoint z
+where
+    tme.tag='%(campaign)s'
+    and tme.pfw_attempt_id=i.pfw_attempt_id
+    and i.filetype='coadd_nwgint'
+    and i.band='%(band)s'
+    and i.tilename='%(tilename)s'
+    and i.expnum=j.expnum
+    and i.ccdnum=j.ccdnum
+    and j.filetype='red_immask'
+    and j.pfw_attempt_id=tse.pfw_attempt_id
+    and tse.tag='%(finalcut_campaign)s'
+    and fai.filename=j.filename
+    and z.imagename = j.filename
+    -- and z.source='FGCM'
+    -- and z.version='v2.0'
+    and ((z.source='FGCM' and z.version='y4a1_v1.5' and z.flag<16)
+            or(z.source='PGCM_FORCED' and z.version='Y3A2_MISC' and z.flag<16))
 order by
     filename
 """
@@ -416,7 +457,7 @@ from
     image j,
     proctag tme,
     proctag tse,
-    file_archive_info fai 
+    file_archive_info fai
 where
     tme.tag='{campaign}'
     and tme.pfw_attempt_id=i.pfw_attempt_id
@@ -430,6 +471,3 @@ where
     and fai.filename=j.filename
     --and rownum < 1000
 """
-
-
-

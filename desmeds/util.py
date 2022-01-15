@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function
+import os
+import subprocess
 
 DEFVAL = -9999
 IMAGE_INFO_TYPES = ['image','weight','seg','bmask','bkg']
@@ -44,4 +46,37 @@ def check_for_required_config(conf, required):
         missing=', '.join(missing)
         raise RuntimeError("there are missing required "
                            "configuration parameters: %s" % missing)
+
+def fpack_file(fname):
+    cmd='fpack %s' % fname
+    print("fpacking with command: '%s'" % cmd)
+    subprocess.check_call(cmd,shell=True)
+
+
+def load_psfmap(fname):
+    import psfex
+
+    fname = os.path.expandvars(fname)
+    pmap={}
+    with open(fname) as fobj:
+        for line in fobj:
+            ls=line.split()
+            if ls[0]=='-9999':
+                continue
+
+            expname=ls[0]
+            ccdstr=ls[1]
+            path=os.path.expandvars(ls[2])
+
+            key = '%s-%s' % (expname, ccdstr)
+
+            if 'psfexcat' in path or 'psfcat' in path:
+                print("loading psfex:",path)
+                p=psfex.PSFEx(path)
+            else:
+                raise ValueError("only psfex for now")
+
+            pmap[key] = p
+
+    return pmap
 

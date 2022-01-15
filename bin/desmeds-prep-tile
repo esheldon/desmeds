@@ -8,15 +8,29 @@ import desmeds
 parser=ArgumentParser()
 
 parser.add_argument(
-    'medsconf',
+    '--medsconf',
+    required=True,
     help='meds configuration file',
 )
+
 parser.add_argument(
-    'tilename',
+    '--campaign',
+    help='campaign, should be sent of medsconf is not a file',
+)
+parser.add_argument(
+    '--source-type',
+    default='finalcut',
+    help='source type if not loading full config from medsconf',
+)
+
+parser.add_argument(
+    '--tilename',
+    required=True,
     help='tilename to download',
 )
 parser.add_argument(
-    'band',
+    '--band',
+    required=True,
     default=None,
     help='band to download',
 )
@@ -38,8 +52,18 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    medsconf=args.medsconf
+    if args.campaign is not None:
+        assert '.yaml' not in medsconf,\
+            'if sending campaign, make medsconf a simple label'
+        medsconf = {
+            'medsconf':medsconf,
+            'source_type':args.source_type,
+            'campaign':args.campaign,
+        }
+
     prep=desmeds.desdm_maker.Preparator(
-        args.medsconf,
+        medsconf,
         args.tilename,
         args.band,
         skip_nullwt=args.skip_nullwt,

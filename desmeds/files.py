@@ -1,5 +1,7 @@
 from __future__ import print_function
 import os
+import shutil
+import tarfile
 import yaml
 import tempfile
 
@@ -140,9 +142,12 @@ def read_meds_config(medsconf):
     with open(fname) as fobj:
         data=yaml.load(fobj)
 
-    if data['medsconf'] != vers:
-        raise ValueError("version mismatch: found '%s' rather "
-                         "than '%s'" % (data['medsconf'], vers))
+    if 'medsconf' not in data:
+        data['medsconf'] = vers
+    else:
+        if data['medsconf'] != vers:
+            raise ValueError("version mismatch: found '%s' rather "
+                             "than '%s'" % (data['medsconf'], vers))
     return data
 
 def read_tileset(tileset):
@@ -211,6 +216,9 @@ def get_meds_base():
     """
     The base directory $DESDATA/meds
     """
+
+    # return '$MEDS_DIR'
+
     dir = os.environ['MEDS_DIR']
     print("dir in get_meds_base:",dir)
     if dir[-1] == '/':
@@ -233,6 +241,20 @@ def get_meds_dir(medsconf, tilename):
     bdir = get_meds_base()
     return os.path.join(bdir, medsconf, tilename)
 
+
+def get_work_dir(tilename, band):
+    tmpdir = os.environ['TMPDIR']
+    dname = 'meds-%s-%s' % (tilename, band)
+    if os.path.basename(tmpdir) == dname:
+        # we must have already appended that
+        return tmpdir
+    else:
+        return os.path.join(
+            tmpdir,
+            dname,
+        )
+
+
 def get_source_dir(medsconf, tilename, band):
     """
     get the directory to hold input sources for MEDS files
@@ -245,7 +267,8 @@ def get_source_dir(medsconf, tilename, band):
         e.g. 'DES0417-5914'
     """
 
-    dir=get_meds_dir(medsconf, tilename)
+    # dir=get_meds_dir(medsconf, tilename)
+    dir = get_work_dir(tilename, band)
     return os.path.join(dir, 'sources-%s' % band)
 
 
@@ -264,7 +287,7 @@ def get_nullwt_dir(medsconf, tilename, band):
     dir=get_meds_dir(medsconf, tilename)
     return os.path.join(dir, 'nullwt-%s' % band)
 
-def get_psf_dir(medsconf, tilename):
+def get_psf_dir(medsconf, tilename, band):
     """
     get the directory holding copies of the psf files
 
@@ -274,10 +297,30 @@ def get_psf_dir(medsconf, tilename):
         A name for the meds version or config.  e.g. 'y3a1-v02'
     tilename: string
         e.g. 'DES0417-5914'
+    band: string
+        e.g. 'r'
     """
 
     dir=get_meds_dir(medsconf, tilename)
-    return os.path.join(dir, 'psfs')
+    return os.path.join(dir, 'psfs-%s' % band)
+
+def get_lists_dir(medsconf, tilename, band):
+    """
+    get the directory holding the file lists and info
+    files
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'r'
+    """
+
+    dir=get_meds_dir(medsconf, tilename)
+    return os.path.join(dir, 'lists-%s' % band)
 
 
 def get_meds_script(medsconf, tilename, band):
@@ -366,6 +409,75 @@ def get_psfmap_file(medsconf, tilename, band):
         ext,
     )
 
+def get_piff_map_file(medsconf, piff_run, tilename, band):
+    """
+    no longer used
+
+    psf map file for piff
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v01'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    dir=get_piff_map_dir(medsconf, piff_run, tilename, band)
+
+    fname = '%(tilename)s_%(band)s_psfmap-%(medsconf)s-%(piff_run)s.dat'
+    fname = fname % dict(
+        medsconf=medsconf,
+        piff_run=piff_run,
+        tilename=tilename,
+        band=band,
+    )
+    fname = os.path.join(dir, fname)
+    return fname
+
+def get_piff_map_dir(medsconf, piff_run, tilename, band):
+    """
+    psf map file for piff
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v01'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+    base_dir=os.environ['PIFF_MAP_DIR']
+    dir='%(base_dir)s/%(medsconf)s/%(piff_run)s/%(tilename)s'
+    dir = dir % dict(
+        base_dir=base_dir,
+        medsconf=medsconf,
+        piff_run=piff_run,
+        tilename=tilename,
+    )
+    return dir
+
+
+def get_piff_exp_summary_file(piff_run, expnum):
+    """
+    expnum not zero padded
+    """
+    base_dir=os.environ['PIFF_DATA_DIR']
+
+    fname = 'exp_psf_cat_%d.fits' % expnum
+
+    fname = os.path.join(
+        base_dir,
+        piff_run,
+        '%d' % expnum,
+        fname,
+    )
+    return fname
+
+
 
 def get_nullwt_file(medsconf, tilename, band, finalcut_file):
     """
@@ -440,7 +552,7 @@ def get_meds_stats_file(medsconf, tilename, band):
 
 def get_meds_status_file(medsconf, tilename, band):
     """
-    get the meds status file for the input 
+    get the meds status file for the input
 
     parameters
     ----------
@@ -959,9 +1071,10 @@ def get_temp_dir():
             tmpdir = tempfile.mkdtemp()
     return tmpdir
 
+
 def try_remove(fname, ntry=2, sleep_time=2):
     import time
-    
+
     for i in range(ntry):
         try:
             os.remove(fname)
@@ -975,6 +1088,7 @@ def try_remove(fname, ntry=2, sleep_time=2):
                 time.sleep(sleep_time)
 
 def read_yaml(fname):
+    fname = os.path.expandvars(fname)
     with open(fname) as fobj:
         data=yaml.load(fobj)
 
@@ -1002,14 +1116,45 @@ def get_desdm_file_config(medsconf, tilename, band):
 
     type='fileconf'
     ext='yaml'
+    subdir='lists-%s' % band
+
     return get_meds_datafile_generic(
         medsconf,
         tilename,
         band,
         type,
         ext,
-        subdir='lists',
+        subdir=subdir,
     )
+
+def get_desdm_finalcut_flist(medsconf, tilename, band):
+    """
+    the desdm version needs a list
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    type='finalcut-flist'
+    ext='dat'
+    subdir='lists-%s' % band
+
+    return get_meds_datafile_generic(
+        medsconf,
+        tilename,
+        band,
+        type,
+        ext,
+        subdir=subdir,
+    )
+
 
 def get_desdm_nullwt_flist(medsconf, tilename, band):
     """
@@ -1028,13 +1173,43 @@ def get_desdm_nullwt_flist(medsconf, tilename, band):
 
     type='nullwt-flist'
     ext='dat'
+    subdir='lists-%s' % band
+
     return get_meds_datafile_generic(
         medsconf,
         tilename,
         band,
         type,
         ext,
-        subdir='lists',
+        subdir=subdir,
+    )
+
+def get_coaddinfo_file(medsconf, tilename, band):
+    """
+    the desdm version needs a list
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    type='coaddinfo'
+    ext='yaml'
+    subdir='lists-%s' % band
+
+    return get_meds_datafile_generic(
+        medsconf,
+        tilename,
+        band,
+        type,
+        ext,
+        subdir=subdir,
     )
 
 
@@ -1055,6 +1230,7 @@ def get_desdm_seg_flist(medsconf, tilename, band):
 
     type='seg-flist'
     ext='dat'
+    subdir='lists-%s' % band
 
     return get_meds_datafile_generic(
         medsconf,
@@ -1062,7 +1238,7 @@ def get_desdm_seg_flist(medsconf, tilename, band):
         band,
         type,
         ext,
-        subdir='lists',
+        subdir=subdir,
     )
 
 
@@ -1083,6 +1259,7 @@ def get_desdm_bkg_flist(medsconf, tilename, band):
 
     type='bkg-flist'
     ext='dat'
+    subdir='lists-%s' % band
 
     return get_meds_datafile_generic(
         medsconf,
@@ -1090,7 +1267,36 @@ def get_desdm_bkg_flist(medsconf, tilename, band):
         band,
         type,
         ext,
-        subdir='lists',
+        subdir=subdir,
+    )
+
+
+def get_desdm_psf_flist(medsconf, tilename, band):
+    """
+    the desdm version needs a list
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    type='psf-flist'
+    ext='dat'
+    subdir='lists-%s' % band
+
+    return get_meds_datafile_generic(
+        medsconf,
+        tilename,
+        band,
+        type,
+        ext,
+        subdir=subdir,
     )
 
 
@@ -1111,13 +1317,56 @@ def get_desdm_objmap(medsconf, tilename, band):
 
     type='objmap'
     ext='fits'
+    subdir='lists-%s' % band
+
     return get_meds_datafile_generic(
         medsconf,
         tilename,
         band,
         type,
         ext,
-        subdir='lists',
+        subdir=subdir,
     )
 
+def try_remove_timeout(fname, ntry=2, sleep_time=2):
+    import time
+    fname = os.path.expandvars(fname)
 
+    for i in range(ntry):
+        try:
+            os.remove(fname)
+            break
+        except:
+            if i==(ntry-1):
+                raise
+            else:
+                print("could not remove '%s', trying again "
+                      "in %f seconds" % (fname,sleep_time))
+                time.sleep(sleep_time)
+
+def try_remove(f):
+    f = os.path.expandvars(f)
+    try:
+        os.remove(f)
+        print("removed file:",f)
+    except:
+        print("could not remove file:",f)
+
+
+def try_remove_dir(d):
+    d = os.path.expandvars(d)
+    try:
+        shutil.rmtree(d)
+        print("removed dir:",d)
+    except:
+        print("could not remove dir:",d)
+
+
+def tar_directory(source_dir):
+    """
+    tar a directory to a tar file called directory.tar.gz
+    """
+    outfile=source_dir+'.tar.gz'
+    print("tarring directory %s -> %s" % (source_dir, outfile))
+    with tarfile.open(outfile, "w:gz") as tar:
+        tar.add(source_dir, arcname=os.path.basename(source_dir))

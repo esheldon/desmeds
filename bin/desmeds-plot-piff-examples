@@ -1,0 +1,198 @@
+#!/usr/bin/env python
+"""
+Plot an example from each of the PIFF files associated with
+this tile.
+"""
+from __future__ import print_function
+import os
+import numpy as np
+import biggles
+import images
+import piff
+import desmeds
+import numpy
+from glob import glob
+
+from argparse import ArgumentParser
+
+parser=ArgumentParser()
+
+parser.add_argument('piff_run',help='e.g. y3a1-v23')
+
+parser.add_argument('--expnum',type=int,help='expnum to show')
+parser.add_argument('--explist',help='path to full list')
+
+class PIFFPlotter(dict):
+    def __init__(self, piff_run, expnums):
+        self['piff_run'] = piff_run
+        self.expnums=expnums
+
+    def go(self):
+        for expnum in self.expnums:
+            d=os.path.join(
+                os.environ['PIFF_DATA_DIR'],
+                self['piff_run'],
+                '%s' % expnum,
+            )
+            for ccdnum in xrange(1,62+1):
+                if ccdnum in [02,31,61]:
+                    continue
+                pattern= os.path.join(
+                    d,
+                    'D%08d_*_c%02d*.fits' % (expnum,ccdnum)
+                )
+                flist=glob(pattern)
+                if len(flist)==0:
+                    print("missing:",expnum,ccdnum)
+                    continue
+
+                if len(flist) > 1:
+                    print("found multiple:",flist)
+                    continue
+
+                path=flist[0]
+                try:
+                    pobj=piff.read(path)
+                except IOError as err:
+                    print(err)
+                    continue
+
+                self._write_image(expnum, ccdnum, pobj)
+
+    def _measure(self, im):
+        import ngmix
+        scale=0.263
+        guess=4.0*0.263
+        cen=(numpy.array(im.shape)-1.0)/2.0
+        j = ngmix.DiagonalJacobian(
+            row=cen[0],
+            col=cen[1],
+            scale=scale,
+        )
+        obs = ngmix.Observation(
+            im,
+            jacobian=j,
+        )
+
+        for i in xrange(2):
+            fitter=ngmix.admom.run_admom(obs, guess)
+            res=fitter.get_result()
+            if res['flags']==0:
+                break
+
+        if res['flags']==0:
+            sigma=numpy.sqrt(res['pars'][4]/2.0)
+            fwhm=ngmix.moments.sigma_to_fwhm(sigma)
+        else:
+            fwhm=-9999.0
+        return fitter, fwhm
+
+    def _write_image(self, expnum, ccdnum, pobj):
+        y,x = numpy.random.uniform(low=100.0, high=500.0, size=2)
+        im = pobj.draw(x=int(x+0.5), y=int(y+0.5), stamp_size=21).array
+
+        #im -= im.min()
+        im *= 1.0/im.max()
+
+        fitter, fwhm = self._measure(im)
+        fwhmstr = 'FWHM: %.2f' % fwhm
+       
+
+        pngfile=self._get_png_file(expnum, ccdnum, y, x)
+        try_makedirs(pngfile)
+        print(pngfile)
+
+
+        if 'band' in self:
+            title='%s-%s %s' % (expnum, ccdnum, self['band'])
+        else:
+            title='%s-%s' % (expnum, ccdnum)
+        tab=biggles.Table(1,2,title=title)
+
+        tab[0,0] = images.view(im, nonlinear=0.8, show=False)
+
+        key=biggles.PlotKey(0.9, 0.9, halign='right')
+        tab[0,1] = biggles.FramedPlot(key=key, aspect_ratio=1.0)
+
+        r, im2plot = images.get_profile(im)
+        pts = biggles.Points(r, im2plot, type='filled circle', label='data')
+        tab[0,1].add(pts, biggles.LineY(0) )
+
+        if fitter.get_result()['flags']==0:
+            gm=fitter.get_gmix()
+            gim=gm.make_image(im.shape, jacobian=fitter._obs.jacobian)
+            gim *= 1.0/gim.max()
+            r,pgim=images.get_profile(gim)
+            mpts=biggles.Points(r, pgim,
+                                color='red',
+                                type='filled diamond',
+                                label='gauss '+fwhmstr)
+            tab[0,1].add( mpts )
+
+        tab.write_img(800,400,pngfile)
+
+
+    def _get_png_dir(self, expnum):
+        return os.path.join(
+            os.environ['PIFF_MAP_DIR'],
+            'images',
+            self['piff_run'],
+            expnum,
+        )
+
+    def _get_png_file(self, expnum, ccdnum, y, x):
+        d=self._get_png_dir(expnum)
+        fname='%s-%s-%s-piff-%.1f-%.1f.png'
+        fname = fname % (expnum, ccdnum, y, x)
+        return os.path.join(
+            d,
+            fname,
+        )
+
+    def _check(self):
+        assert 'PIFF_MAP_DIR' in os.environ
+        assert 'PIFF_DATA_DIR' in os.environ
+        assert 'MEDS_DIR' in os.environ
+
+    def _get_png_dir(self, expnum):
+        return os.path.join(
+            os.environ['PIFF_MAP_DIR'],
+            'images',
+            self['piff_run'],
+            '%s' % expnum,
+        )
+
+    def _get_png_file(self, expnum, ccdnum, y, x):
+        d=self._get_png_dir(expnum)
+        fname='%s-%s-piff-%.1f-%.1f.png'
+        fname = fname % (expnum, ccdnum, y, x)
+        return os.path.join(
+            d,
+            fname,
+        )
+
+
+def try_makedirs(fname):
+    dir=os.path.dirname(fname)
+    if not os.path.exists(dir):
+        try:
+            os.makedirs(dir)
+        except:
+            pass
+
+if __name__=="__main__":
+    args = parser.parse_args()
+
+    if args.explist is not None:
+        expnums = np.fromfile(args.explist,sep='\n',dtype='i8')
+    elif args.expnum is not None:
+        expnums = [args.expnum]
+    else:
+        raise ValueError("send either --explist or --expnum")
+
+
+    maker = PIFFPlotter(
+        args.piff_run,
+        expnums,
+    )
+    maker.go()

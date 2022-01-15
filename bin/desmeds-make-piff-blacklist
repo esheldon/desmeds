@@ -1,0 +1,167 @@
+#!/usr/bin/env python
+from __future__ import print_function
+import numpy
+import fitsio
+import desmeds
+import esutil as eu
+
+from argparse import ArgumentParser
+
+parser=ArgumentParser()
+
+parser.add_argument('piff_run',help='the piff run')
+parser.add_argument('outfile',help='output file with combined blacklist')
+parser.add_argument('files',nargs='+',help='files with flagged exp/ccds')
+
+CCD31=2**0
+EYEBALL=2**1
+
+class BlacklistMaker(object):
+    def __init__(self, piff_run, outfile, files):
+        self.piff_run=piff_run
+        self.outfile=outfile
+        self.files=files
+
+
+    def go(self):
+        print("will write to:",self.outfile)
+
+        self.explist={}
+        self.keylist={}
+        self.blacklist_list=[]
+
+        for f in self.files:
+            print(f)
+            self._load_blacklist(f)
+
+        blacklist=eu.numpy_util.combine_arrlist(self.blacklist_list)
+
+        
+        self.blacklist=blacklist
+
+        # collate with the original blacklists based on
+        # the exposure numbers
+        self._collate_with_piff_outputs()
+        self._write_blacklist()
+
+    def _load_blacklist(self, fname):
+
+        blacklist=self.blacklist_list
+        dtype=[
+            ('key','S12'),
+            ('expnum','i8'),
+            ('ccdnum','i4'),
+            ('comments','S80'),
+        ]
+        with open(fname) as fobj:
+            for line in fobj:
+                ls=line.split()
+
+                if len(ls)==0:
+                    continue
+
+                if len(ls)==1:
+                    comments=''
+                else:
+                    comments = ' '.join(ls[1:])
+
+                name=ls[0]
+                key0=name[0:11]
+                expstr, ccdstr = key0.split('-')
+                key = 'D' + key0
+
+                if key in self.keylist:
+                    # no dups
+                    continue
+
+
+                expnum=int(expstr)
+                ccdnum=int(ccdstr)
+                if expnum==400768:
+                    print("expnum:",expnum)
+
+                entry = numpy.zeros(1, dtype=dtype)
+                entry['key'] = key
+                entry['expnum'] = expnum
+                entry['ccdnum'] = ccdnum
+                entry['comments'] = comments
+
+                blacklist.append( entry )
+
+                self.explist[expnum] = expnum
+                self.keylist[key] = key
+
+
+    def _collate_with_piff_outputs(self):
+        """
+        run through and get info for each of the exposures, setting a new flag
+        field for those
+        """
+
+        addf = [
+            ('bflags','i4'),
+            ('comments','S80'),
+            ('nstars_used','i4'),
+        ]
+
+        dlist=[]
+        nexp=len(self.explist)
+
+        # first read info for all exposures
+        for i,expnum in enumerate(self.explist):
+            print("%d/%d" % (i+1,nexp))
+
+            fname=desmeds.files.get_piff_exp_summary_file(
+                self.piff_run,
+                expnum,
+            )
+            print(fname)
+            info=fitsio.read(fname,ext='info')
+            stars=fitsio.read(fname,ext='stars')
+
+            info = eu.numpy_util.add_fields(info, addf)
+            for i in range(info.size):
+                ccdnum=info['ccdnum'][i]
+                wnan,=numpy.where( numpy.isnan(stars['piff_flag'] ) )
+                if wnan.size > 0:
+                    stars['piff_flag']=9999
+                piff_flag = numpy.array(stars['piff_flag'],dtype='i4')
+                info['nstars_used'][i] = numpy.sum( 
+                    (stars['ccdnum'] == ccdnum)
+                    & ((piff_flag & 1) != 0)
+                )
+
+            # match to our blacklist
+            w,=numpy.where(self.blacklist['expnum'] == expnum)
+            print(w)
+
+            print("checking:",expnum)
+            assert w.size > 0,"expected a match"
+
+            mb, md = eu.numpy_util.match(
+                self.blacklist['ccdnum'][w],
+                info['ccdnum'],
+            )
+            assert w.size == mb.size,"expect all to match"
+
+            info['bflags'][md] = EYEBALL
+            info['comments'][md] = self.blacklist['comments'][w[mb]]
+
+            # also flag ccd 31
+            w31,=numpy.where(info['ccdnum']==31)
+            if w31.size > 0:
+                info['bflags'][w31] |= CCD31
+
+            dlist.append(info)
+
+        self.exp_data = eu.numpy_util.combine_arrlist(dlist)
+
+    def _write_blacklist(self):
+        print("writing:",self.outfile)
+        fitsio.write(self.outfile, self.exp_data, clobber=True)
+
+if __name__=="__main__":
+
+    args=parser.parse_args()
+    maker=BlacklistMaker(args.piff_run,args.outfile, args.files)
+    maker.go()

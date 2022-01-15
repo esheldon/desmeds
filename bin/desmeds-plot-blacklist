@@ -1,0 +1,288 @@
+#!/usr/bin/env python
+from __future__ import print_function
+import numpy
+import fitsio
+import desmeds
+import esutil as eu
+import biggles
+
+from argparse import ArgumentParser
+
+parser=ArgumentParser()
+
+parser.add_argument('file',help='the blacklist file')
+
+class Plotter(object):
+    def __init__(self, fname):
+        self.data=fitsio.read(fname)
+        self.diff_file='piff-mean-diff'
+        self.std_file='piff-std-diff'
+
+    def plot_mean_ediff_nstar(self):
+        data=self.data
+        key=biggles.PlotKey(0.9, 0.1, halign='right')
+        plt=biggles.FramedPlot(
+            key=key,
+            aspect_ratio=1,
+            xlabel=r'$N_{star}^{used}$',
+            ylabel=r'$< \Delta e >$',
+            yrange=[-0.5, 0.5], 
+        )
+
+        wbad,=numpy.where( (data['bflags'] != 0) & (data['ccdnum'] != 31))
+
+        pall1 = biggles.Points(
+            data['nstars_used'],
+            data['piff_mean_de1'],
+            color='blue',
+            type='dot',
+        )
+        pbad1 = biggles.Points(
+            data['nstars_used'][wbad],
+            data['piff_mean_de1'][wbad],
+            color='blue',
+            type='circle',
+            label=r'$e_1$',
+        )
+        pall2 = biggles.Points(
+            data['nstars_used'],
+            data['piff_mean_de2'],
+            color='red',
+            type='dot',
+        )
+        pbad2 = biggles.Points(
+            data['nstars_used'][wbad],
+            data['piff_mean_de2'][wbad],
+            color='red',
+            type='circle',
+            label=r'$e_2$',
+        )
+
+        plt.add(
+            pall1,
+            pall2,
+            pbad1,
+            pbad2,
+        )
+
+        epsfile=self.diff_file+'-e-nuse.eps'
+        pngfile=self.diff_file+'-e-nuse.png'
+
+        print("writing:",epsfile)
+        plt.write(epsfile)
+        print("writing:",pngfile)
+        plt.write(pngfile)
+
+
+    def plot_mean_Tdiff_nstar(self):
+        data=self.data
+        key=biggles.PlotKey(0.9, 0.1, halign='right')
+        plt=biggles.FramedPlot(
+            key=key,
+            aspect_ratio=1,
+            xlabel=r'$N_{star}^{used}$',
+            ylabel=r'$< \Delta T >$',
+            yrange=[-0.5, 0.5], 
+        )
+
+        wbad,=numpy.where( (data['bflags'] != 0) & (data['ccdnum'] != 31))
+
+        pall = biggles.Points(
+            data['nstars_used'],
+            data['piff_mean_dT'],
+            type='dot',
+        )
+
+        pbad = biggles.Points(
+            data['nstars_used'][wbad],
+            data['piff_mean_dT'][wbad],
+            color='blue',
+            type='circle',
+            label=r'eyeball',
+        )
+
+        plt.add(
+            pall,
+            pbad,
+        )
+
+        epsfile=self.diff_file+'-T-nuse.eps'
+        pngfile=self.diff_file+'-T-nuse.png'
+
+        print("writing:",epsfile)
+        plt.write(epsfile)
+        print("writing:",pngfile)
+        plt.write(pngfile)
+
+
+    def plot_mean_diff(self):
+        data=self.data
+        key=biggles.PlotKey(0.9, 0.25, halign='right')
+        plt=biggles.FramedPlot(
+            key=key,
+            aspect_ratio=1,
+            xlabel=r'$< \Delta T >$',
+            ylabel=r'$< \Delta e >$',
+            xrange=[-0.5,0.6],
+            yrange=[-0.4,0.4],
+            #xrange=[-0.05,0.03],
+            #yrange=[-0.01,0.01],
+        )
+
+        weye,=numpy.where( (data['bflags'] != 0) & (data['ccdnum'] != 31))
+        w31,=numpy.where( (data['ccdnum'] == 31))
+
+        pall1 = biggles.Points(
+            data['piff_mean_dT'],
+            data['piff_mean_de1'],
+            color='blue',
+            type='dot',
+        )
+
+        peyecirc1 = biggles.Points(
+            data['piff_mean_dT'][weye],
+            data['piff_mean_de1'][weye],
+            color='blue',
+            type='circle',
+            label=r'$e_1$',
+        )
+        p31circ1 = biggles.Points(
+            data['piff_mean_dT'][w31],
+            data['piff_mean_de1'][w31],
+            color='blue',
+            type='cross',
+            label=r'$e_1 chip 31$',
+        )
+
+
+
+
+        pall2 = biggles.Points(
+            data['piff_mean_dT'],
+            data['piff_mean_de2'],
+            color='red',
+            type='dot',
+        )
+        peyecirc2 = biggles.Points(
+            data['piff_mean_dT'][weye],
+            data['piff_mean_de2'][weye],
+            color='red',
+            type='circle',
+            label=r'$e_2$',
+        )
+        p31circ2 = biggles.Points(
+            data['piff_mean_dT'][w31],
+            data['piff_mean_de2'][w31],
+            color='blue',
+            type='cross',
+            label=r'$e_2 chip 31$',
+        )
+
+
+
+
+        plt.add(
+            pall1,
+            pall2,
+            peyecirc1,
+            peyecirc2,
+            p31circ1,
+            p31circ2,
+        )
+
+        epsfile=self.diff_file+'.eps'
+        pngfile=self.diff_file+'.png'
+
+        print("writing:",epsfile)
+        plt.write(epsfile)
+        print("writing:",pngfile)
+        plt.write(pngfile)
+
+
+    def plot_std_diff(self):
+        data=self.data
+        key=biggles.PlotKey(0.9, 0.1, halign='right')
+        plt=biggles.FramedPlot(
+            key=key,
+            aspect_ratio=1,
+            xlabel=r'$\sigma( \Delta T )$',
+            ylabel=r'$\sigma( \Delta e )$',
+            xrange=[0,1],
+            yrange=[0,1],
+            #xrange=[0,0.05],
+            #yrange=[0,0.05],
+        )
+
+        wbad,=numpy.where( (data['bflags'] != 0) & (data['ccdnum'] != 31))
+
+        pall1 = biggles.Points(
+            data['piff_std_dT'],
+            data['piff_std_de1'],
+            color='blue',
+            type='dot',
+        )
+
+        pbad1 = biggles.Points(
+            data['piff_std_dT'][wbad],
+            data['piff_std_de1'][wbad],
+            color='black',
+            type='dot',
+        )
+        pbadcirc1 = biggles.Points(
+            data['piff_std_dT'][wbad],
+            data['piff_std_de1'][wbad],
+            color='blue',
+            type='circle',
+            label=r'$e_1$',
+        )
+
+
+
+        pall2 = biggles.Points(
+            data['piff_std_dT'],
+            data['piff_std_de2'],
+            color='red',
+            type='dot',
+        )
+        pbad2 = biggles.Points(
+            data['piff_std_dT'][wbad],
+            data['piff_std_de2'][wbad],
+            color='red',
+            type='dot',
+        )
+        pbadcirc2 = biggles.Points(
+            data['piff_std_dT'][wbad],
+            data['piff_std_de2'][wbad],
+            color='red',
+            type='circle',
+            label=r'$e_2$',
+        )
+
+
+
+        plt.add(
+            pall1,
+            pall2,
+            #pbad1,
+            pbadcirc1,
+            #pbad2,
+            pbadcirc2,
+        )
+
+        epsfile=self.std_file+'.eps'
+        pngfile=self.std_file+'.png'
+
+        print("writing:",epsfile)
+        plt.write(epsfile)
+        print("writing:",pngfile)
+        plt.write(pngfile)
+
+
+if __name__=="__main__":
+
+    args=parser.parse_args()
+    maker=Plotter(args.file)
+    maker.plot_mean_Tdiff_nstar()
+    maker.plot_mean_ediff_nstar()
+    maker.plot_mean_diff()
+    maker.plot_std_diff()

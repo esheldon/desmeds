@@ -6,7 +6,9 @@ making input files if needed
 from __future__ import print_function
 import sys
 import os
+import meds
 import desmeds
+from desmeds import files
 
 
 from argparse import ArgumentParser
@@ -27,11 +29,26 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    '--coadd',
+    action='store_true',
+    help=("produce a coadd MEDS file"),
+)
+parser.add_argument(
+    '--seed',
+    type=int,
+    help=("seed for coadded random noise field"),
+)
+parser.add_argument('--make-plots',action='store_true',
+                    help='make plots of each epoch and the coadd')
+parser.add_argument('--obj-range',
+                    help='range of objects to coadd, for testing')
+
+
+parser.add_argument(
     '--tmpdir',
     default=None,
     help=('use the specified temporary directory for writing'),
 )
-
 
 parser.add_argument(
     '--noprep',
@@ -52,17 +69,30 @@ parser.add_argument(
 
 
 
+def get_obj_range(args):
+    obj_range = args.obj_range
+    if obj_range is not None:
+        obj_range=[int(x) for x in args.obj_range.split(',')]
+
+    return obj_range
+
+def check_args(args):
+    if args.coadd:
+        if args.seed is None:
+            raise ValueError("send --seed when coadding")
+
 
 def main():
 
     args = parser.parse_args()
+
+    check_args(args)
 
     prep=desmeds.desdm_maker.Preparator(
         args.medsconf,
         args.tilename,
         args.band,
     )
-
 
     try:
 
@@ -72,21 +102,75 @@ def main():
         if not args.noprep:
             prep.go()
 
-        conf=desmeds.files.read_meds_config(args.medsconf)
-        fileconf=desmeds.files.get_desdm_file_config(
-            conf['medsconf'],
-            args.tilename,
-            args.band,
+        config=desmeds.files.read_meds_config(args.medsconf)
+        fileconf=files.read_yaml(
+            desmeds.files.get_desdm_file_config(
+                config['medsconf'],
+                args.tilename,
+                args.band,
+            )
         )
-        maker = desmeds.DESMEDSMakerDESDM(
-            conf,
-            fileconf,
-            tmpdir=args.tmpdir,
-        )
-        maker.go()
+
+        should_make=True
+        if args.coadd:
+            meds_url_coadd=fileconf['meds_url']
+
+            meds_url_nocoadd = meds_url_coadd.replace('.fits.fz','.fits')
+            meds_url_nocoadd = meds_url_nocoadd.replace('.fits','-nocoadd.fits')
+            meds_url_nocoadd = os.path.expandvars(meds_url_nocoadd)
+
+            fileconf['meds_url'] = meds_url_nocoadd
+
+            # don't make it if it exists and noprep was requested
+            print('checking for meds_url_nocoadd:', meds_url_nocoadd)
+            if args.noprep and os.path.exists(meds_url_nocoadd):
+                should_make=False
+
+        if should_make:
+            maker = desmeds.DESMEDSMakerDESDM(
+                config,
+                fileconf,
+                tmpdir=args.tmpdir,
+            )
+
+            maker.go()
+
+        if args.coadd:
+            psfmap = desmeds.util.load_psfmap(prep['psfmap_file'])
+
+            meds_obj = meds.MEDS(meds_url_nocoadd)
+            coadder=desmeds.DESMEDSCoadder(
+                config,
+                meds_obj,
+                psfmap,
+                args.seed,
+                make_plots=args.make_plots,
+            )
+            coadd_maker=desmeds.DESMEDSCoaddMaker(
+                config,
+                coadder,
+                tmpdir=args.tmpdir,
+            )
+
+            obj_range=get_obj_range(args)
+
+            coadd_maker.write(meds_url_coadd, obj_range=obj_range)
+
+
     finally:
         if not args.noclean:
             prep.clean()
+
+            if args.coadd:
+                files.try_remove(meds_url_nocoadd)
+                files.try_remove(prep['psfmap_file'])
+                files.try_remove_dir(prep['psf_dir'])
+                files.try_remove_dir(prep['nullwt_dir'])
+
+                if os.path.exists(prep['lists_dir']):
+                    files.tar_directory(prep['lists_dir'])
+                    files.try_remove_dir(prep['lists_dir'])
+
 
 if __name__ == '__main__':
     main()
