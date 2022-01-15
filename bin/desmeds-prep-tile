@@ -66,8 +66,9 @@ if __name__ == '__main__':
             'medsconf': medsconf,
             'source_type': args.source_type,
             'campaign': args.campaign,
-            'piff_campaign': args.piff_campaign,
         }
+        if args.piff_campaign is not None:
+            medsconf["piff_campaign"] = args.piff_campaign
 
     prep = desmeds.desdm_maker.Preparator(
         medsconf,
