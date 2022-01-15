@@ -220,7 +220,6 @@ def get_meds_base():
     # return '$MEDS_DIR'
 
     dir = os.environ['MEDS_DIR']
-    print("dir in get_meds_base:",dir)
     if dir[-1] == '/':
         dir = dir[0:-1]
     return dir

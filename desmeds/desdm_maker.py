@@ -593,7 +593,7 @@ class Preparator(dict):
         - write psf map file
         - write file config
     """
-    def __init__(self, medsconf, tilename, band, skip_nullwt=False):
+    def __init__(self, medsconf, tilename, band):
         from .coaddinfo import Coadd
         from .coaddsrc import CoaddSrc
 
