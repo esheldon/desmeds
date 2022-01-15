@@ -593,7 +593,7 @@ class Preparator(dict):
         - write psf map file
         - write file config
     """
-    def __init__(self, medsconf, tilename, band):
+    def __init__(self, medsconf, tilename, band, save_in_meds_dir=False):
         from .coaddinfo import Coadd
         from .coaddsrc import CoaddSrc
 
@@ -606,12 +606,28 @@ class Preparator(dict):
         self['tilename'] = tilename
         self['band'] = band
 
+        if save_in_meds_dir:
+            source_dir = os.path.join(
+                files.get_meds_dir(medsconf["medsconf"], tilename),
+                'sources-%s' % band,
+            )
+        else:
+            source_dir = None
+
+        if "piff_campaign" in self:
+            kwargs = {"piff_campaign": self["piff_campaign"]}
+        else:
+            kwargs = {}
+
         csrc = CoaddSrc(
             self['medsconf'],
             self['tilename'],
             self['band'],
             campaign=self['campaign'],
+            **kwargs,
         )
+        if source_dir is not None:
+            csrc["source_dir"] = source_dir
 
         self.coadd = Coadd(
             self['medsconf'],
@@ -619,7 +635,11 @@ class Preparator(dict):
             self['band'],
             campaign=self['campaign'],
             sources=csrc,
+            **kwargs,
         )
+        if source_dir is not None:
+            self.coadd["source_dir"] = source_dir
+
         self['nullwt_dir'] = files.get_nullwt_dir(
             self['medsconf'],
             self['tilename'],
@@ -664,6 +684,7 @@ class Preparator(dict):
         self._write_seg_flist(info['src_info'], fileconf)
         self._write_bkg_flist(info['src_info'], fileconf)
         self._write_psf_flist(info['src_info'], fileconf)
+        self._write_piff_flist(info['src_info'], fileconf)
         self._write_exp_flist(info['src_info'], fileconf)
         self._write_fcut_flist(info['src_info'], fileconf)
 
@@ -736,26 +757,30 @@ class Preparator(dict):
                 fobj.write("%s\n" % sinfo['seg_path'])
 
     def _write_fcut_flist(self, src_info, fileconf):
-        fname=fileconf['seg_flist'].replace("seg","fcut")
-        print("writing:",fname)
+        fname = expandvars(fileconf['seg_flist'].replace("seg", "fcut"))
+        print("writing:", fname)
         with open(fname, 'w') as fobj:
             for sinfo in src_info:
-                fobj.write("%s %.16g\n" % (sinfo['image_path'], sinfo['magzp'] ))
+                fobj.write("%s %.16g\n" % (sinfo['image_path'], sinfo['magzp']))
 
     def _write_exp_flist(self, src_info, fileconf):
-        fname=fileconf['seg_flist'].replace("seg","exp")
-        print("writing:",fname)
+        fname = expandvars(fileconf['seg_flist'].replace("seg", "exp"))
+        print("writing:", fname)
         with open(fname, 'w') as fobj:
-            exp_dict={}
+            exp_dict = {}
             for sinfo in src_info:
                 im_path = os.path.normpath(sinfo['image_path'])
-                im_dir,im_file = os.path.dirname(im_path), os.path.basename(im_path)
+                im_dir, im_file = os.path.dirname(im_path), os.path.basename(im_path)
                 if im_dir in exp_dict:
                     continue
-                exp_dict[im_dir] = im_file[:im_file.index('_c')]+"_c??"+im_file[im_file.index('_c')+4:]
+                exp_dict[im_dir] = (
+                    im_file[:im_file.index('_c')]
+                    + "_c??"
+                    + im_file[im_file.index('_c')+4:]
+                )
 
-            for d,f in exp_dict.items():
-                fobj.write("%s %s\n" % (d,f))
+            for d, f in exp_dict.items():
+                fobj.write("%s %s\n" % (d, f))
 
     def _write_bkg_flist(self, src_info, fileconf):
         fname = expandvars(fileconf['bkg_flist'])
@@ -770,6 +795,14 @@ class Preparator(dict):
         with open(fname, 'w') as fobj:
             for sinfo in src_info:
                 fobj.write("%s\n" % sinfo['psf_path'])
+
+    def _write_piff_flist(self, src_info, fileconf):
+        if src_info and "piff_path" in src_info[0]:
+            fname = expandvars(fileconf['psf_flist'].replace("psf", "piff"))
+            print("writing:", fname)
+            with open(fname, 'w') as fobj:
+                for sinfo in src_info:
+                    fobj.write("%s\n" % sinfo['piff_path'])
 
     def _write_coaddinfo(self, info):
         fname = files.get_coaddinfo_file(

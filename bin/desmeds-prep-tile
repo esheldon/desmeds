@@ -5,7 +5,7 @@ download all files and make the nullwt images
 from argparse import ArgumentParser
 import desmeds
 
-parser=ArgumentParser()
+parser = ArgumentParser()
 
 parser.add_argument(
     '--medsconf',
@@ -17,10 +17,22 @@ parser.add_argument(
     '--campaign',
     help='campaign, should be sent of medsconf is not a file',
 )
+
+parser.add_argument(
+    '--piff-campaign',
+    help='campaign, should be sent of medsconf is not a file',
+)
+
 parser.add_argument(
     '--source-type',
     default='finalcut',
     help='source type if not loading full config from medsconf',
+)
+
+parser.add_argument(
+    '--save-in-meds-dir',
+    action='store_true',
+    help='If given, the downloaded data will be in the MEDS_DIR/medsconf/tilename.',
 )
 
 parser.add_argument(
@@ -46,20 +58,22 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    medsconf=args.medsconf
+    medsconf = args.medsconf
     if args.campaign is not None:
         assert '.yaml' not in medsconf,\
             'if sending campaign, make medsconf a simple label'
         medsconf = {
-            'medsconf':medsconf,
-            'source_type':args.source_type,
-            'campaign':args.campaign,
+            'medsconf': medsconf,
+            'source_type': args.source_type,
+            'campaign': args.campaign,
+            'piff_campaign': args.piff_campaign,
         }
 
-    prep=desmeds.desdm_maker.Preparator(
+    prep = desmeds.desdm_maker.Preparator(
         medsconf,
         args.tilename,
         args.band,
+        save_in_meds_dir=args.save_in_meds_dir,
     )
 
     if args.clean:
