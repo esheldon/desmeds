@@ -1071,21 +1071,6 @@ def get_temp_dir():
     return tmpdir
 
 
-def try_remove(fname, ntry=2, sleep_time=2):
-    import time
-
-    for i in range(ntry):
-        try:
-            os.remove(fname)
-            break
-        except:
-            if i==(ntry-1):
-                raise
-            else:
-                print("could not remove '%s', trying again "
-                      "in %f seconds" % (fname,sleep_time))
-                time.sleep(sleep_time)
-
 def read_yaml(fname):
     fname = os.path.expandvars(fname)
     with open(fname) as fobj:
@@ -1327,6 +1312,7 @@ def get_desdm_objmap(medsconf, tilename, band):
         subdir=subdir,
     )
 
+
 def try_remove_timeout(fname, ntry=2, sleep_time=2):
     import time
     fname = os.path.expandvars(fname)
@@ -1334,22 +1320,18 @@ def try_remove_timeout(fname, ntry=2, sleep_time=2):
     for i in range(ntry):
         try:
             os.remove(fname)
+            print("removed file:", fname)
             break
-        except:
-            if i==(ntry-1):
+        except Exception:
+            if i == (ntry-1):
                 raise
             else:
                 print("could not remove '%s', trying again "
-                      "in %f seconds" % (fname,sleep_time))
+                      "in %f seconds" % (fname, sleep_time))
                 time.sleep(sleep_time)
 
-def try_remove(f):
-    f = os.path.expandvars(f)
-    try:
-        os.remove(f)
-        print("removed file:",f)
-    except:
-        print("could not remove file:",f)
+
+try_remove = try_remove_timeout
 
 
 def try_remove_dir(d):
