@@ -447,7 +447,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         print("reading full coaddinfo:", fname)
         with open(fname) as fobj:
-            ci = yaml.load(fobj)
+            ci = yaml.safe_load(fobj)
 
         if self['source_type'] == 'nullwt':
             # refined astrometry already present

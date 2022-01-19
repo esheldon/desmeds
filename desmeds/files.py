@@ -140,7 +140,7 @@ def read_meds_config(medsconf):
 
     print("reading:",fname)
     with open(fname) as fobj:
-        data=yaml.load(fobj)
+        data=yaml.safe_load(fobj)
 
     if 'medsconf' not in data:
         data['medsconf'] = vers
@@ -168,7 +168,7 @@ def read_tileset(tileset):
 
     print("reading:",fname)
     with open(fname) as fobj:
-        data=yaml.load(fobj)
+        data=yaml.safe_load(fobj)
 
     return data
 
@@ -204,7 +204,7 @@ def read_testbed_config(testbed):
 
     print("reading:",fname)
     with open(fname) as fobj:
-        data=yaml.load(fobj)
+        data=yaml.safe_load(fobj)
 
     return data
 
@@ -1074,7 +1074,7 @@ def get_temp_dir():
 def read_yaml(fname):
     fname = os.path.expandvars(fname)
     with open(fname) as fobj:
-        data=yaml.load(fobj)
+        data=yaml.safe_load(fobj)
 
     return data
 
