@@ -1060,7 +1060,7 @@ class PIFFWrapper(dict):
             kwargs = {}
 
         if self.ccdnum is not None:
-            kwargs["ccdnum"] = self.ccdnum
+            kwargs["chipnum"] = self.ccdnum
 
         gsim = self.piff_obj.draw(
             x=col,
