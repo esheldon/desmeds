@@ -392,7 +392,7 @@ class DESMEDSMaker(dict):
         query the des database to get the unique identifier
         for each object
         """
-        # do queries to get coadd object ids        
+        # do queries to get coadd object ids
         qwry = """
         select
             coadd_objects_id,
@@ -426,7 +426,7 @@ class DESMEDSMaker(dict):
 
         # now put in fft sizes
         bins = [0]
-        bins.extend([sze for sze in self['allowed_box_sizes'] 
+        bins.extend([sze for sze in self['allowed_box_sizes']
                      if sze >= self['min_box_size']
                      and sze <= self['max_box_size']])
 
@@ -504,15 +504,16 @@ class DESMEDSMaker(dict):
 
         # required
         self.obj_data['id'] = iddata['coadd_objects_id']
-        self.obj_data['color'] = iddata['color']
+        self.obj_data['wcs_color'] = iddata['wcs_color']
+        self.obj_data['psf_color'] = iddata['psf_color']
 
         # get ra,dec
         coadd_hdr = fitsio.read_header(self.cf_refband['image_url'],
                                        ext=self['coadd_image_ext'])
         coadd_wcs = eu.wcsutil.WCS(coadd_hdr)
 
-        if 'color' in self.obj_data.dtype.names:
-            color = self.obj_data['color']
+        if 'wcs_color' in self.obj_data.dtype.names:
+            color = self.obj_data['wcs_color']
         else:
             color = None
 
@@ -692,7 +693,8 @@ class DESMEDSMaker(dict):
             ('y2_err','f4'),
             ('input_row','f8'),
             ('input_col','f8'),
-            ('color', 'f4'),
+            ('psf_color', 'f4'),
+            ('wcs_color', 'f4'),
         ]
 
         # -qz 4.0 instead of -q 4.0

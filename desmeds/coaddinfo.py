@@ -422,10 +422,10 @@ select
     gb.mag_auto - ib.mag_auto as gi_color,
     ib.mag_auto - zb.mag_auto as iz_color
 from
-    (select * from prod.Y6_COADD_OBJECT_SAVE where filename = '%s') det,
-    (select * from prod.Y6_COADD_OBJECT_SAVE where filename = '%s') gb,
-    (select * from prod.Y6_COADD_OBJECT_SAVE where filename = '%s') ib,
-    (select * from prod.Y6_COADD_OBJECT_SAVE where filename = '%s') zb
+    (select * from prod.Y6A2_COADD_OBJECT_SAVE where filename = '%s') det,
+    (select * from prod.Y6A2_COADD_OBJECT_SAVE where filename = '%s') gb,
+    (select * from prod.Y6A2_COADD_OBJECT_SAVE where filename = '%s') ib,
+    (select * from prod.Y6A2_COADD_OBJECT_SAVE where filename = '%s') zb
 where
     det.id = gb.id
     and det.id = ib.id

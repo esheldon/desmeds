@@ -149,6 +149,11 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         cf['magzp'] = fd['coadd_magzp']
 
         cf['srclist'] = self._load_srclist()
+        for i in range(len(cf['srclist'])):
+            ccdnum = os.path.basename(cf['srclist'][i]['red_image']).split("_")[2][1:]
+            band = os.path.basename(cf['srclist'][i]['red_image']).split("_")[1]
+            cf['srclist'][i]['ccdnum'] = int(ccdnum)
+            cf['srclist'][i]['band'] = band
 
         if 'psf_flist' in fd:
             self.psf_data = self._load_psf_data(cf)
@@ -235,12 +240,26 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
                         "list has %d elements" % (len(psf_flist), nepoch)
                     )
 
+            if 'piff_flist' in fd:
+                assert 'coadd_psf_url' in fd, \
+                        'coadd_psf_url must be set of SE psfs are set'
+
+                piff_flist = self._read_generic_flist('piff_flist')
+
+                if len(piff_flist) != nepoch:
+                    raise ValueError(
+                        "piff list has %d elements, source image "
+                        "list has %d elements" % (len(piff_flist), nepoch)
+                    )
+
             for i, src in enumerate(srclist):
                 src['red_bkg'] = bkg_info[i]
                 src['red_seg'] = seg_info[i]
 
                 if 'psf_flist' in fd:
                     src['red_psf'] = psf_flist[i]
+                if 'piff_flist' in fd:
+                    src['red_psf_piff'] = piff_flist[i]
 
             self._verify_src_info(srclist)
 
@@ -272,7 +291,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         psf = self._load_one_psf(cf['psf_url'], self['psf']['coadd'])
         psf_data.append(psf)
 
-        flist = [src['red_psf'] for src in cf['srclist']]
+        if self['psf']['se']['type'] == "piff":
+            flist = [src['red_psf_piff'] for src in cf['srclist']]
+        else:
+            flist = [src['red_psf'] for src in cf['srclist']]
         ccdnums = [src['ccdnum'] for src in cf['srclist']]
         bands = [src['band'] for src in cf['srclist']]
 
@@ -541,13 +563,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         # pixmappy always uses g-i
         gmi = idmap['gi_color'][s].copy()
-        w, = numpy.where(
-            (gmi < 0)
-            |
-            (gmi > 3)
-        )
-        if w.size > 0:
-            gmi[w] = 0.61
+        gmi = numpy.clip(gmi, 0, 3)
         iddata['wcs_color'] = gmi
 
         # piff in gri uses g-i, uses i-z in zY
@@ -555,13 +571,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             iddata["psf_color"] = iddata["wcs_color"]
         else:
             imz = idmap['iz_color'][s].copy()
-            w, = numpy.where(
-                (imz < 0)
-                |
-                (imz > 0.7)
-            )
-            if w.size > 0:
-                imz[w] = 0.34
+            imz = numpy.clip(imz, 0, 0.7)
             iddata['psf_color'] = imz
 
         return iddata
@@ -714,6 +724,7 @@ class Preparator(dict):
         self._write_seg_flist(info['src_info'], fileconf)
         self._write_bkg_flist(info['src_info'], fileconf)
         self._write_psf_flist(info['src_info'], fileconf)
+        self._write_piff_flist(info['src_info'], fileconf)
 
         self._write_coaddinfo(info)
 
@@ -795,6 +806,13 @@ class Preparator(dict):
             for sinfo in src_info:
                 fobj.write("%s\n" % sinfo['psf_path'])
 
+    def _write_piff_flist(self, src_info, fileconf):
+        fname = expandvars(fileconf['piff_flist'])
+        print("writing:", fname)
+        with open(fname, 'w') as fobj:
+            for sinfo in src_info:
+                fobj.write("%s\n" % sinfo['piff_path'])
+
     def _write_coaddinfo(self, info):
         fname = files.get_coaddinfo_file(
             self['medsconf'],
@@ -832,6 +850,11 @@ class Preparator(dict):
             self['band'],
         )
         psf_flist = files.get_desdm_psf_flist(
+            self['medsconf'],
+            self['tilename'],
+            self['band'],
+        )
+        piff_flist = files.get_desdm_piff_flist(
             self['medsconf'],
             self['tilename'],
             self['band'],
@@ -875,6 +898,7 @@ class Preparator(dict):
             'seg_flist': seg_flist,
             'bkg_flist': bkg_flist,
             'psf_flist': psf_flist,
+            'piff_flist': piff_flist,
 
             'meds_url': meds_file,
         }
@@ -1066,7 +1090,7 @@ class PIFFWrapper(dict):
 
 
 # default G-I color for pixmappy
-DEFAULT_COLOR = 0.61
+DEFAULT_COLOR = 1.1
 
 
 class GalsimWCSWrapper(object):
