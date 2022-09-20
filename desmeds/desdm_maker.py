@@ -150,8 +150,14 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         cf['srclist'] = self._load_srclist()
         for i in range(len(cf['srclist'])):
-            ccdnum = os.path.basename(cf['srclist'][i]['red_image']).split("_")[2][1:]
-            band = os.path.basename(cf['srclist'][i]['red_image']).split("_")[1]
+            ccdnum = (
+                os.path.basename(cf['srclist'][i]['red_image'])
+                .split("_")[2][1:]
+            )
+            band = (
+                os.path.basename(cf['srclist'][i]['red_image'])
+                .split("_")[1]
+            )
             cf['srclist'][i]['ccdnum'] = int(ccdnum)
             cf['srclist'][i]['band'] = band
 

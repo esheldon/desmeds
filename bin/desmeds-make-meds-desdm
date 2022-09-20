@@ -7,12 +7,10 @@ Unlike desmeds-make-meds, does not download any data
 or create null weight files
 """
 from __future__ import print_function
-import sys
-import os
 import desmeds
 
 from argparse import ArgumentParser
-parser=ArgumentParser()
+parser = ArgumentParser()
 
 parser.add_argument(
     'medsconf',
@@ -22,16 +20,23 @@ parser.add_argument(
     'fileconf',
     help='json file holding file information',
 )
+parser.add_argument(
+    '--tmpdir',
+    default=None,
+    help=('use the specified temporary directory for writing'),
+)
 
 
 def main():
-    args=parser.parse_args()
+    args = parser.parse_args()
 
     maker = desmeds.DESMEDSMakerDESDM(
         args.medsconf,
         args.fileconf,
+        tmpdir=args.tmpdir,
     )
     maker.go()
+
 
 main()
 
