@@ -569,7 +569,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
 
         # pixmappy always uses g-i
         gmi = idmap['gi_color'][s].copy()
-        gi_color_range = self.get("gi_color_range", [-np.inf, np.inf])
+        gi_color_range = self["psf"]["se"].get(
+            "gi_color_range",
+            [-np.inf, np.inf],
+        )
         gmi = numpy.clip(gmi, gi_color_range[0], gi_color_range[1])
         iddata['wcs_color'] = gmi
 
@@ -578,7 +581,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             iddata["psf_color"] = iddata["wcs_color"]
         else:
             imz = idmap['iz_color'][s].copy()
-            iz_color_range = self.get("iz_color_range", [-np.inf, np.inf])
+            iz_color_range = self["psf"]["se"].get(
+                "iz_color_range",
+                [-np.inf, np.inf],
+            )
             imz = numpy.clip(imz, iz_color_range[0], iz_color_range[1])
             iddata['psf_color'] = imz
 
