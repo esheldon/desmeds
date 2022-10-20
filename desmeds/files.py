@@ -5,14 +5,16 @@ import tarfile
 import yaml
 import tempfile
 
+
 def get_desdata():
     """
     get the environment variable DESDATA
     """
-    dir=os.environ['DESDATA']
+    dir = os.environ['DESDATA']
     if dir[-1] == '/':
         dir = dir[0:-1]
     return dir
+
 
 def get_nwgint_config(campaign):
     """
@@ -22,10 +24,11 @@ def get_nwgint_config(campaign):
     clow = campaign.lower()
     assert "y3a1" in clow or 'y3a2' in clow
 
-    dir=get_desdata()
-    path='OPS/config/multiepoch/Y3A1/v4/Y3A1_v4_coadd_nwgint.config'
-    path=os.path.join(dir, path)
+    dir = get_desdata()
+    path = 'OPS/config/multiepoch/Y3A1/v4/Y3A1_v4_coadd_nwgint.config'
+    path = os.path.join(dir, path)
     return path
+
 
 def get_config_dir():
     """
@@ -34,6 +37,7 @@ def get_config_dir():
     if 'DESMEDS_CONFIG_DIR' not in os.environ:
         raise RuntimeError("you need to define $DESMEDS_CONFIG_DIR")
     return os.environ['DESMEDS_CONFIG_DIR']
+
 
 '''
 def get_list_dir():
@@ -89,6 +93,7 @@ def get_zp_cache_file(campaign):
     return fname
 '''
 
+
 def get_meds_config_file(medsconf):
     """
     get the MEDS config file path
@@ -100,9 +105,10 @@ def get_meds_config_file(medsconf):
     medsconf: string
         Identifier for the meds config, e.g. "013"
     """
-    dir=get_config_dir()
-    fname='meds-%s.yaml' % medsconf
+    dir = get_config_dir()
+    fname = 'meds-%s.yaml' % medsconf
     return os.path.join(dir, fname)
+
 
 def get_tileset_file(tileset):
     """
@@ -114,8 +120,8 @@ def get_tileset_file(tileset):
         Identifier for the tileset, e.g. "y3-test01" or the
         full path
     """
-    dir=get_config_dir()
-    fname='tileset-%s.yaml' % tileset
+    dir = get_config_dir()
+    fname = 'tileset-%s.yaml' % tileset
     return os.path.join(dir, fname)
 
 
@@ -132,15 +138,15 @@ def read_meds_config(medsconf):
     """
 
     if '.yaml' in medsconf:
-        fname=medsconf
-        vers=os.path.basename(medsconf).replace('.yaml','').replace('meds-','')
+        fname = medsconf
+        vers = os.path.basename(medsconf).replace('.yaml', '').replace('meds-', '')
     else:
-        fname=get_meds_config_file(medsconf)
-        vers=medsconf
+        fname = get_meds_config_file(medsconf)
+        vers = medsconf
 
-    print("reading:",fname)
+    print("reading:", fname)
     with open(fname) as fobj:
-        data=yaml.safe_load(fobj)
+        data = yaml.safe_load(fobj)
 
     if 'medsconf' not in data:
         data['medsconf'] = vers
@@ -149,6 +155,7 @@ def read_meds_config(medsconf):
             raise ValueError("version mismatch: found '%s' rather "
                              "than '%s'" % (data['medsconf'], vers))
     return data
+
 
 def read_tileset(tileset):
     """
@@ -162,13 +169,13 @@ def read_tileset(tileset):
     """
 
     if '.yaml' in tileset:
-        fname=tileset
+        fname = tileset
     else:
-        fname=get_tileset_file(tileset)
+        fname = get_tileset_file(tileset)
 
-    print("reading:",fname)
+    print("reading:", fname)
     with open(fname) as fobj:
-        data=yaml.safe_load(fobj)
+        data = yaml.safe_load(fobj)
 
     return data
 
@@ -184,9 +191,10 @@ def get_testbed_config_file(testbed):
     testbed: string
         Identifier for the testbed, e.g. "sva1-2"
     """
-    dir=get_config_dir()
-    fname='testbed-%s.yaml' % testbed
+    dir = get_config_dir()
+    fname = 'testbed-%s.yaml' % testbed
     return os.path.join(dir, fname)
+
 
 def read_testbed_config(testbed):
     """
@@ -200,17 +208,18 @@ def read_testbed_config(testbed):
         Identifier for the testbed, e.g. "sva1-2"
     """
 
-    fname=get_testbed_config_file(testbed)
+    fname = get_testbed_config_file(testbed)
 
-    print("reading:",fname)
+    print("reading:", fname)
     with open(fname) as fobj:
-        data=yaml.safe_load(fobj)
+        data = yaml.safe_load(fobj)
 
     return data
 
 #
 # directories
 #
+
 
 def get_meds_base():
     """
@@ -254,7 +263,7 @@ def get_work_dir(tilename, band):
         )
 
 
-def get_source_dir(medsconf, tilename, band):
+def get_source_dir(medsconf, tilename, band, no_temp=False):
     """
     get the directory to hold input sources for MEDS files
 
@@ -266,8 +275,10 @@ def get_source_dir(medsconf, tilename, band):
         e.g. 'DES0417-5914'
     """
 
-    # dir=get_meds_dir(medsconf, tilename)
-    dir = get_work_dir(tilename, band)
+    if no_temp:
+        dir = get_meds_dir(medsconf, tilename)
+    else:
+        dir = get_work_dir(tilename, band)
     return os.path.join(dir, 'sources-%s' % band)
 
 
@@ -283,8 +294,9 @@ def get_nullwt_dir(medsconf, tilename, band):
         e.g. 'DES0417-5914'
     """
 
-    dir=get_meds_dir(medsconf, tilename)
+    dir = get_meds_dir(medsconf, tilename)
     return os.path.join(dir, 'nullwt-%s' % band)
+
 
 def get_psf_dir(medsconf, tilename, band):
     """
@@ -300,8 +312,9 @@ def get_psf_dir(medsconf, tilename, band):
         e.g. 'r'
     """
 
-    dir=get_meds_dir(medsconf, tilename)
+    dir = get_meds_dir(medsconf, tilename)
     return os.path.join(dir, 'psfs-%s' % band)
+
 
 def get_lists_dir(medsconf, tilename, band):
     """
@@ -318,7 +331,7 @@ def get_lists_dir(medsconf, tilename, band):
         e.g. 'r'
     """
 
-    dir=get_meds_dir(medsconf, tilename)
+    dir = get_meds_dir(medsconf, tilename)
     return os.path.join(dir, 'lists-%s' % band)
 
 
@@ -337,8 +350,8 @@ def get_meds_script(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    ext='sh'
-    type='make-meds'
+    ext = 'sh'
+    type = 'make-meds'
     return get_meds_script_file_generic(medsconf, tilename, band, type, ext)
 
 
@@ -376,12 +389,13 @@ def get_meds_file(medsconf, tilename, band, ext='fits.fz'):
         e.g. 'i'
     """
 
-    type='meds'
+    type = 'meds'
     return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
                                      type,
                                      ext)
+
 
 def get_psfmap_file(medsconf, tilename, band):
     """
@@ -398,8 +412,8 @@ def get_psfmap_file(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='psfmap'
-    ext='dat'
+    type = 'psfmap'
+    ext = 'dat'
     return get_meds_datafile_generic(
         medsconf,
         tilename,
@@ -407,6 +421,7 @@ def get_psfmap_file(medsconf, tilename, band):
         type,
         ext,
     )
+
 
 def get_piff_map_file(medsconf, piff_run, tilename, band):
     """
@@ -423,8 +438,8 @@ def get_piff_map_file(medsconf, piff_run, tilename, band):
     band: string
         e.g. 'i'
     """
-    
-    dir=get_piff_map_dir(medsconf, piff_run, tilename, band)
+
+    dir = get_piff_map_dir(medsconf, piff_run, tilename, band)
 
     fname = '%(tilename)s_%(band)s_psfmap-%(medsconf)s-%(piff_run)s.dat'
     fname = fname % dict(
@@ -435,6 +450,7 @@ def get_piff_map_file(medsconf, piff_run, tilename, band):
     )
     fname = os.path.join(dir, fname)
     return fname
+
 
 def get_piff_map_dir(medsconf, piff_run, tilename, band):
     """
@@ -449,8 +465,8 @@ def get_piff_map_dir(medsconf, piff_run, tilename, band):
     band: string
         e.g. 'i'
     """
-    base_dir=os.environ['PIFF_MAP_DIR']
-    dir='%(base_dir)s/%(medsconf)s/%(piff_run)s/%(tilename)s'
+    base_dir = os.environ['PIFF_MAP_DIR']
+    dir = '%(base_dir)s/%(medsconf)s/%(piff_run)s/%(tilename)s'
     dir = dir % dict(
         base_dir=base_dir,
         medsconf=medsconf,
@@ -464,7 +480,7 @@ def get_piff_exp_summary_file(piff_run, expnum):
     """
     expnum not zero padded
     """
-    base_dir=os.environ['PIFF_DATA_DIR']
+    base_dir = os.environ['PIFF_DATA_DIR']
 
     fname = 'exp_psf_cat_%d.fits' % expnum
 
@@ -475,7 +491,6 @@ def get_piff_exp_summary_file(piff_run, expnum):
         fname,
     )
     return fname
-
 
 
 def get_nullwt_file(medsconf, tilename, band, finalcut_file):
@@ -493,15 +508,16 @@ def get_nullwt_file(medsconf, tilename, band, finalcut_file):
         name of original finalcut file
     """
 
-    dir=get_nullwt_dir(medsconf, tilename, band)
+    dir = get_nullwt_dir(medsconf, tilename, band)
 
     # original will be something like D00499389_r_c21_r2378p01_immasked.fits.fz
-    bname=os.path.basename(finalcut_file)
-    bname=bname.replace('.fits.fz','.fits')
+    bname = os.path.basename(finalcut_file)
+    bname = bname.replace('.fits.fz', '.fits')
 
-    fname=bname.replace('.fits','_nullwt.fits')
+    fname = bname.replace('.fits', '_nullwt.fits')
 
     return os.path.join(dir, fname)
+
 
 def get_meds_stubby_file(medsconf, tilename, band):
     """
@@ -518,13 +534,14 @@ def get_meds_stubby_file(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='meds-stubby'
-    ext='fits'
+    type = 'meds-stubby'
+    ext = 'fits'
     return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
                                      type,
                                      ext)
+
 
 def get_meds_stats_file(medsconf, tilename, band):
     """
@@ -541,17 +558,18 @@ def get_meds_stats_file(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='meds-stats'
-    ext='yaml'
+    type = 'meds-stats'
+    ext = 'yaml'
     return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
                                      type,
                                      ext)
 
+
 def get_meds_status_file(medsconf, tilename, band):
     """
-    get the meds status file for the input 
+    get the meds status file for the input
 
     parameters
     ----------
@@ -564,8 +582,8 @@ def get_meds_status_file(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='meds-status'
-    ext='yaml'
+    type = 'meds-status'
+    ext = 'yaml'
     return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
@@ -588,13 +606,14 @@ def get_meds_srclist_file(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='meds-srclist'
-    ext='dat'
+    type = 'meds-srclist'
+    ext = 'dat'
     return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
                                      type,
                                      ext)
+
 
 def get_meds_input_file(medsconf, tilename, band):
     """
@@ -611,13 +630,14 @@ def get_meds_input_file(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='meds-input'
-    ext='dat'
+    type = 'meds-input'
+    ext = 'dat'
     return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
                                      type,
                                      ext)
+
 
 def get_meds_coadd_objects_id_file(medsconf, coadd_run, band):
     """
@@ -634,9 +654,10 @@ def get_meds_coadd_objects_id_file(medsconf, coadd_run, band):
         e.g. 'i'
     """
 
-    tilename=coadd_run_to_tilename(coadd_run)
-    type='meds-coadd-objects-id'
-    ext='dat'
+    # this is very broken
+    tilename = coadd_run_to_tilename(coadd_run)  # noqa
+    type = 'meds-coadd-objects-id'
+    ext = 'dat'
     return get_meds_datafile_generic(medsconf,
                                      coadd_run,
                                      tilename,
@@ -667,19 +688,18 @@ def get_meds_datafile_generic(medsconf, tilename, band, type, ext, subdir=None):
     dir = get_meds_dir(medsconf, tilename)
 
     if subdir is not None:
-        dir=os.path.join(dir, subdir)
+        dir = os.path.join(dir, subdir)
 
     # note bizarre pattern of dashes and underscores
     # here we mimic DESDM
 
-    fname='%(tilename)s_%(band)s_%(type)s-%(medsconf)s.%(ext)s'
+    fname = '%(tilename)s_%(band)s_%(type)s-%(medsconf)s.%(ext)s'
     fname = fname % dict(tilename=tilename,
                          band=band,
                          type=type,
                          medsconf=medsconf,
                          ext=ext)
     return os.path.join(dir, fname)
-
 
 
 def get_meds_lsf_file(medsconf, tilename, band, missing=False):
@@ -696,12 +716,13 @@ def get_meds_lsf_file(medsconf, tilename, band, missing=False):
         e.g. 'i'
     """
 
-    ext='lsf'
-    type='make-meds'
+    ext = 'lsf'
+    type = 'make-meds'
     if missing:
         type += '-missing'
 
     return get_meds_script_file_generic(medsconf, tilename, band, type, ext)
+
 
 def get_meds_log_file(medsconf, tilename, band):
     """
@@ -718,14 +739,13 @@ def get_meds_log_file(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    ext='log'
-    type='meds'
+    ext = 'log'
+    type = 'meds'
     return get_meds_datafile_generic(medsconf,
                                      tilename,
                                      band,
                                      type,
                                      ext)
-
 
 
 def get_meds_wq_file(medsconf, tilename, band, missing=False):
@@ -743,12 +763,13 @@ def get_meds_wq_file(medsconf, tilename, band, missing=False):
         e.g. 'i'
     """
 
-    ext='yaml'
-    type='make-meds'
+    ext = 'yaml'
+    type = 'make-meds'
     if missing:
         type += '-missing'
 
     return get_meds_script_file_generic(medsconf, tilename, band, type, ext)
+
 
 def get_meds_stubby_wq_file(medsconf, tilename, band):
     """
@@ -765,10 +786,9 @@ def get_meds_stubby_wq_file(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    ext='yaml'
-    type='make-stubby'
+    ext = 'yaml'
+    type = 'make-stubby'
     return get_meds_script_file_generic(medsconf, tilename, band, type, ext)
-
 
 
 def get_meds_script_file_generic(medsconf, tilename, band, type, ext):
@@ -786,7 +806,7 @@ def get_meds_script_file_generic(medsconf, tilename, band, type, ext):
     ext: string
         extension, e.g. 'sh' 'yaml'
     """
-    dir=get_meds_script_dir(medsconf)
+    dir = get_meds_script_dir(medsconf)
 
     fname = '%(tilename)s-%(band)s-%(type)s.%(ext)s'
     fname = fname % dict(tilename=tilename,
@@ -825,7 +845,7 @@ class StagedInFile(object):
         self.stage_in()
 
     def _set_paths(self, fname, tmpdir=None):
-        fname=expandpath(fname)
+        fname = expandpath(fname)
 
         self.original_path = fname
 
@@ -838,7 +858,7 @@ class StagedInFile(object):
         self._stage_in = False
 
         if self.tmpdir is not None:
-            bdir,bname = os.path.split(self.original_path)
+            bdir, bname = os.path.split(self.original_path)
             self.path = os.path.join(self.tmpdir, bname)
 
             if self.tmpdir == bdir:
@@ -856,22 +876,22 @@ class StagedInFile(object):
 
         if self._stage_in:
             if not os.path.exists(self.original_path):
-                raise IOError("file not found:",self.original_path)
+                raise IOError("file not found:", self.original_path)
 
             if os.path.exists(self.path):
-                print("removing existing file:",self.path)
+                print("removing existing file:", self.path)
                 os.remove(self.path)
             else:
                 makedir_fromfile(self.path)
 
-            print("staging in",self.original_path,"->",self.path)
-            shutil.copy(self.original_path,self.path)
+            print("staging in", self.original_path, "->", self.path)
+            shutil.copy(self.original_path, self.path)
 
             self.was_staged_in = True
 
     def cleanup(self):
         if os.path.exists(self.path) and self.was_staged_in:
-            print("removing temporary file:",self.path)
+            print("removing temporary file:", self.path)
             os.remove(self.path)
             self.was_staged_in = False
 
@@ -918,9 +938,8 @@ class StagedOutFile(object):
 
         self._set_paths(fname, tmpdir=tmpdir)
 
-
     def _set_paths(self, fname, tmpdir=None):
-        fname=expandpath(fname)
+        fname = expandpath(fname)
 
         self.final_path = fname
 
@@ -941,7 +960,7 @@ class StagedOutFile(object):
             bname = os.path.basename(fname)
             self.path = os.path.join(self.tmpdir, bname)
 
-            if self.tmpdir==fdir:
+            if self.tmpdir == fdir:
                 # the user sent tmpdir as the final output dir, no
                 # staging is performed
                 self.is_temp = False
@@ -967,21 +986,22 @@ class StagedOutFile(object):
                     return
 
             if os.path.exists(self.final_path):
-                print("removing existing file:",self.final_path)
+                print("removing existing file:", self.final_path)
                 os.remove(self.final_path)
 
             makedir_fromfile(self.final_path)
 
-            print("staging out '%s' -> '%s'" % (self.path,self.final_path))
-            shutil.move(self.path,self.final_path)
+            print("staging out '%s' -> '%s'" % (self.path, self.final_path))
+            shutil.move(self.path, self.final_path)
 
-        self.was_staged_out=True
+        self.was_staged_out = True
 
     def __enter__(self):
         return self
 
     def __exit__(self, exception_type, exception_value, traceback):
         self.stage_out()
+
 
 class TempFile(object):
     """
@@ -1012,14 +1032,13 @@ class TempFile(object):
         """
         remove the file if it exists, if not already cleaned up
         """
-        import shutil
 
         if not self.was_cleaned_up:
             if os.path.exists(self.path):
-                print("removing:",self.path)
+                print("removing:", self.path)
                 os.remove(self.path)
 
-            self.was_cleaned_up=True
+            self.was_cleaned_up = True
 
     def __enter__(self):
         return self
@@ -1033,9 +1052,9 @@ def expandpath(path):
     expand environment variables, user home directories (~), and convert
     to an absolute path
     """
-    path=os.path.expandvars(path)
-    path=os.path.expanduser(path)
-    path=os.path.realpath(path)
+    path = os.path.expandvars(path)
+    path = os.path.expanduser(path)
+    path = os.path.realpath(path)
     return path
 
 
@@ -1043,8 +1062,9 @@ def makedir_fromfile(fname):
     """
     extract the directory and make it if it does not exist
     """
-    dname=os.path.dirname(fname)
+    dname = os.path.dirname(fname)
     try_makedir(dname)
+
 
 def try_makedir(dir):
     """
@@ -1052,20 +1072,21 @@ def try_makedir(dir):
     """
     if not os.path.exists(dir):
         try:
-            print("making directory:",dir)
+            print("making directory:", dir)
             os.makedirs(dir)
-        except:
+        except Exception:
             # probably a race condition
             pass
+
 
 def get_temp_dir():
     """
     get a temporary directory.  Check for batch system specific
     directories in environment variables, falling back to TMPDIR
     """
-    tmpdir=os.environ.get('_CONDOR_SCRATCH_DIR',None)
+    tmpdir = os.environ.get('_CONDOR_SCRATCH_DIR', None)
     if tmpdir is None:
-        tmpdir=os.environ.get('TMPDIR',None)
+        tmpdir = os.environ.get('TMPDIR', None)
         if tmpdir is None:
             tmpdir = tempfile.mkdtemp()
     return tmpdir
@@ -1074,7 +1095,7 @@ def get_temp_dir():
 def read_yaml(fname):
     fname = os.path.expandvars(fname)
     with open(fname) as fobj:
-        data=yaml.safe_load(fobj)
+        data = yaml.safe_load(fobj)
 
     return data
 
@@ -1098,9 +1119,9 @@ def get_desdm_file_config(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='fileconf'
-    ext='yaml'
-    subdir='lists-%s' % band
+    type = 'fileconf'
+    ext = 'yaml'
+    subdir = 'lists-%s' % band
 
     return get_meds_datafile_generic(
         medsconf,
@@ -1110,6 +1131,7 @@ def get_desdm_file_config(medsconf, tilename, band):
         ext,
         subdir=subdir,
     )
+
 
 def get_desdm_finalcut_flist(medsconf, tilename, band):
     """
@@ -1126,9 +1148,9 @@ def get_desdm_finalcut_flist(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='finalcut-flist'
-    ext='dat'
-    subdir='lists-%s' % band
+    type = 'finalcut-flist'
+    ext = 'dat'
+    subdir = 'lists-%s' % band
 
     return get_meds_datafile_generic(
         medsconf,
@@ -1155,9 +1177,9 @@ def get_desdm_nullwt_flist(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='nullwt-flist'
-    ext='dat'
-    subdir='lists-%s' % band
+    type = 'nullwt-flist'
+    ext = 'dat'
+    subdir = 'lists-%s' % band
 
     return get_meds_datafile_generic(
         medsconf,
@@ -1167,6 +1189,7 @@ def get_desdm_nullwt_flist(medsconf, tilename, band):
         ext,
         subdir=subdir,
     )
+
 
 def get_coaddinfo_file(medsconf, tilename, band):
     """
@@ -1183,9 +1206,9 @@ def get_coaddinfo_file(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='coaddinfo'
-    ext='yaml'
-    subdir='lists-%s' % band
+    type = 'coaddinfo'
+    ext = 'yaml'
+    subdir = 'lists-%s' % band
 
     return get_meds_datafile_generic(
         medsconf,
@@ -1212,9 +1235,9 @@ def get_desdm_seg_flist(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='seg-flist'
-    ext='dat'
-    subdir='lists-%s' % band
+    type = 'seg-flist'
+    ext = 'dat'
+    subdir = 'lists-%s' % band
 
     return get_meds_datafile_generic(
         medsconf,
@@ -1241,9 +1264,9 @@ def get_desdm_bkg_flist(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='bkg-flist'
-    ext='dat'
-    subdir='lists-%s' % band
+    type = 'bkg-flist'
+    ext = 'dat'
+    subdir = 'lists-%s' % band
 
     return get_meds_datafile_generic(
         medsconf,
@@ -1270,9 +1293,38 @@ def get_desdm_psf_flist(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='psf-flist'
-    ext='dat'
-    subdir='lists-%s' % band
+    type = 'psf-flist'
+    ext = 'dat'
+    subdir = 'lists-%s' % band
+
+    return get_meds_datafile_generic(
+        medsconf,
+        tilename,
+        band,
+        type,
+        ext,
+        subdir=subdir,
+    )
+
+
+def get_desdm_piff_flist(medsconf, tilename, band):
+    """
+    the desdm version needs a list
+
+    parameters
+    ----------
+    medsconf: string
+        A name for the meds version or config.  e.g. '013'
+        or 'y3a1-v02'
+    tilename: string
+        e.g. 'DES0417-5914'
+    band: string
+        e.g. 'i'
+    """
+
+    type = 'piff-flist'
+    ext = 'dat'
+    subdir = 'lists-%s' % band
 
     return get_meds_datafile_generic(
         medsconf,
@@ -1299,9 +1351,9 @@ def get_desdm_objmap(medsconf, tilename, band):
         e.g. 'i'
     """
 
-    type='objmap'
-    ext='fits'
-    subdir='lists-%s' % band
+    type = 'objmap'
+    ext = 'fits'
+    subdir = 'lists-%s' % band
 
     return get_meds_datafile_generic(
         medsconf,
@@ -1312,6 +1364,7 @@ def get_desdm_objmap(medsconf, tilename, band):
         subdir=subdir,
     )
 
+
 def try_remove_timeout(fname, ntry=2, sleep_time=2):
     import time
     fname = os.path.expandvars(fname)
@@ -1320,38 +1373,38 @@ def try_remove_timeout(fname, ntry=2, sleep_time=2):
         try:
             os.remove(fname)
             break
-        except:
-            if i==(ntry-1):
+        except Exception:
+            if i == (ntry-1):
                 raise
             else:
                 print("could not remove '%s', trying again "
-                      "in %f seconds" % (fname,sleep_time))
+                      "in %f seconds" % (fname, sleep_time))
                 time.sleep(sleep_time)
+
 
 def try_remove(f):
     f = os.path.expandvars(f)
     try:
         os.remove(f)
-        print("removed file:",f)
-    except:
-        print("could not remove file:",f)
+        print("removed file:", f)
+    except Exception:
+        print("could not remove file:", f)
 
 
 def try_remove_dir(d):
     d = os.path.expandvars(d)
     try:
         shutil.rmtree(d)
-        print("removed dir:",d)
-    except:
-        print("could not remove dir:",d)
+        print("removed dir:", d)
+    except Exception:
+        print("could not remove dir:", d)
 
 
 def tar_directory(source_dir):
     """
     tar a directory to a tar file called directory.tar.gz
     """
-    outfile=source_dir+'.tar.gz'
+    outfile = source_dir+'.tar.gz'
     print("tarring directory %s -> %s" % (source_dir, outfile))
     with tarfile.open(outfile, "w:gz") as tar:
         tar.add(source_dir, arcname=os.path.basename(source_dir))
-

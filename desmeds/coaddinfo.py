@@ -19,7 +19,7 @@ class Coadd(dict):
                  campaign='Y6A2_COADD',
                  src=None,
                  sources=None,
-                 piff_campaign="Y6A1_PIFF"):
+                 piff_campaign="Y6A1_PIFF", no_temp=False):
 
         self['medsconf'] = medsconf
         self['tilename'] = tilename
@@ -29,6 +29,7 @@ class Coadd(dict):
             self['medsconf'],
             self['tilename'],
             self['band'],
+            no_temp=no_temp,
         )
 
         self['campaign'] = campaign.upper()
@@ -50,11 +51,11 @@ class Coadd(dict):
             # add full path info
             self._add_full_paths(info)
 
-            sources=self.get_sources()
+            sources = self.get_sources()
             if sources is not None:
                 self._add_src_info(info)
 
-            self._info=info
+            self._info = info
 
         return info
 
@@ -65,23 +66,23 @@ class Coadd(dict):
 
         full_dir = os.path.expandvars(self['source_dir'])
         if not os.path.exists(full_dir):
-            print("making source dir:",full_dir)
+            print("making source dir:", full_dir)
             os.makedirs(full_dir)
 
-        info=self.get_info()
+        info = self.get_info()
         print("found %d SE sources" % (len(info.get("src_info", []))))
 
-        self['flist_file']=self._write_download_flist(info)
+        self['flist_file'] = self._write_download_flist(info)
 
         if 'DESREMOTE_RSYNC_USER' in os.environ:
             self['userstring'] = os.environ['DESREMOTE_RSYNC_USER']+'@'
         else:
             self['userstring'] = ''
 
-        cmd=_DOWNLOAD_CMD % self
+        cmd = _DOWNLOAD_CMD % self
 
         try:
-            subprocess.check_call(cmd,shell=True)
+            subprocess.check_call(cmd, shell=True)
         finally:
             files.try_remove_timeout(self['flist_file'])
 
@@ -95,38 +96,44 @@ class Coadd(dict):
         source_dir = os.path.expandvars(self['source_dir'])
         work_dir = files.get_work_dir(self['tilename'], self['band'])
 
-        print("removing sources:",source_dir)
+        print("removing sources:", source_dir)
         shutil.rmtree(source_dir)
 
-        print("removing work dir:",work_dir)
+        print("removing work dir:", work_dir)
         shutil.rmtree(work_dir)
 
     def get_objmap(self, info):
         """
         get the mapping between OBJECT_NUMBER and ID
         """
-        query=self._get_objmap_query(info)
+        query = self._get_objmap_query(info)
         print(query)
 
         conn = self.get_conn()
         curs = conn.cursor()
         curs.execute(query)
 
-        dtype=self._get_objmap_dtype()
-        return numpy.fromiter(curs,dtype=dtype)
+        dtype = self._get_objmap_dtype()
+        return numpy.fromiter(curs, dtype=dtype)
 
     def _get_objmap_query(self, info):
-        #return _OBJECT_MAP_QUERY
-        filename=os.path.basename(info['cat_path'])
-        #filename=os.path.basename(info['filename'])
-        return _OBJECT_MAP_QUERY % filename
+        # return _OBJECT_MAP_QUERY
+        filename = os.path.basename(info['cat_path'])
+        # filename=os.path.basename(info['filename'])
+        return _OBJECT_MAP_QUERY % (
+            filename,
+            filename.replace("_%s_cat" % self["band"], "_g_cat"),
+            filename.replace("_%s_cat" % self["band"], "_i_cat"),
+            filename.replace("_%s_cat" % self["band"], "_z_cat"),
+        )
 
     def _get_objmap_dtype(self):
         return [
-            ('object_number','i4'),
-            ('id','i8'),
+            ('object_number', 'i4'),
+            ('id', 'i8'),
+            ('gi_color', 'f4'),
+            ('iz_color', 'f4'),
         ]
-
 
     def get_sources(self):
         """
@@ -142,21 +149,21 @@ class Coadd(dict):
         query = _QUERY_COADD_TEMPLATE_BYTILE % self
 
         print(query)
-        conn=self.get_conn()
+        conn = self.get_conn()
         curs = conn.cursor()
         curs.execute(query)
 
-        c=curs.fetchall()
+        c = curs.fetchall()
 
-        tile,path,fname,comp,band,pai = c[0]
+        tile, path, fname, comp, band, pai = c[0]
 
         entry = {
-            'tilename':tile,
-            'filename':fname,
-            'compression':comp,
-            'path':path,
-            'band':band,
-            'pfw_attempt_id':pai,
+            'tilename': tile,
+            'filename': fname,
+            'compression': comp,
+            'path': path,
+            'band': band,
+            'pfw_attempt_id': pai,
 
             # need to add this to the cache?  should always
             # be the same...
@@ -165,30 +172,27 @@ class Coadd(dict):
 
         return entry
 
-
-
     def _add_full_paths(self, info):
         """
         seg maps don't have .fz extension for coadd
         """
-        dirdict=self._get_all_dirs(info)
+        dirdict = self._get_all_dirs(info)
         info['image_path'] = os.path.join(
             dirdict['image']['local_dir'],
             info['filename']+info['compression'],
         )
         info['cat_path'] = os.path.join(
             dirdict['cat']['local_dir'],
-            info['filename'].replace('.fits','_cat.fits'),
+            info['filename'].replace('.fits', '_cat.fits'),
         )
         info['seg_path'] = os.path.join(
             dirdict['seg']['local_dir'],
-            info['filename'].replace('.fits','_segmap.fits'),
+            info['filename'].replace('.fits', '_segmap.fits'),
         )
         info['psf_path'] = os.path.join(
             dirdict['psf']['local_dir'],
-            info['filename'].replace('.fits','_psfcat.psf'),
+            info['filename'].replace('.fits', '_psfcat.psf'),
         )
-
 
     def _get_download_flist(self, info, no_prefix=False):
         """
@@ -203,18 +207,18 @@ class Coadd(dict):
         no_prefix: bool
             If True, the {source_dir} is removed from the front
         """
-        #source_dir=os.path.expandvars(self['source_dir'])
-        source_dir=self['source_dir']
+        # source_dir=os.path.expandvars(self['source_dir'])
+        source_dir = self['source_dir']
 
         if source_dir[-1] != '/':
             source_dir = source_dir + '/'
 
-        types=self._get_download_types()
-        stypes=self._get_source_download_types()
+        types = self._get_download_types()
+        stypes = self._get_source_download_types()
 
-        flist=[]
+        flist = []
         for type in types:
-            tname='%s_path' % type
+            tname = '%s_path' % type
 
             fname = info[tname]
 
@@ -226,7 +230,7 @@ class Coadd(dict):
         if 'src_info' in info:
             for sinfo in info['src_info']:
                 for type in stypes:
-                    tname='%s_path' % type
+                    tname = '%s_path' % type
                     if tname in sinfo:
                         fname = sinfo[tname]
 
@@ -237,14 +241,13 @@ class Coadd(dict):
 
         return flist
 
-
     def _write_download_flist(self, info):
 
-        flist_file=self._get_tempfile()
-        flist=self._get_download_flist(info, no_prefix=True)
+        flist_file = self._get_tempfile()
+        flist = self._get_download_flist(info, no_prefix=True)
 
-        print("writing file list to:",flist_file)
-        with open(flist_file,'w') as fobj:
+        print("writing file list to:", flist_file)
+        with open(flist_file, 'w') as fobj:
             for fname in flist:
                 fobj.write(fname)
                 fobj.write('\n')
@@ -257,20 +260,18 @@ class Coadd(dict):
             suffix='.dat',
         )
 
-
     def _get_download_types(self):
-        return ['image','cat','seg','psf']
+        return ['image', 'cat', 'seg', 'psf']
 
     def _get_source_download_types(self):
-        return ['image','bkg','seg','psf','head','piff']
-
+        return ['image', 'bkg', 'seg', 'psf', 'head', 'piff']
 
     def _add_src_info(self, info):
         """
         get path info for the input single-epoch sources
         """
 
-        sources=self.get_sources()
+        # sources = self.get_sources()
         src_info = self.sources.get_info()
 
         self._add_head_full_paths(info, src_info)
@@ -278,15 +279,15 @@ class Coadd(dict):
         info['src_info'] = src_info
 
     def _add_head_full_paths(self, info, src_info):
-        dirdict=self._get_all_dirs(info)
+        dirdict = self._get_all_dirs(info)
 
         # this is a full path
-        auxdir=dirdict['aux']['local_dir']
+        auxdir = dirdict['aux']['local_dir']
 
-        head_front=info['filename'][0:-7]
+        head_front = info['filename'][0:-7]
 
         for src in src_info:
-            fname=src['filename']
+            fname = src['filename']
 
             fid = fname[0:15]
 
@@ -307,17 +308,17 @@ class Coadd(dict):
         sources = self.get_sources()
         if sources is not None:
             # share connection with the sources
-            conn=sources.get_conn()
+            conn = sources.get_conn()
         else:
             import easyaccess as ea
-            conn=ea.connect(section='desoper')
+            conn = ea.connect(section='desoper')
 
-        self._conn=conn
+        self._conn = conn
 
     def _get_all_dirs(self, info):
-        dirs={}
+        dirs = {}
 
-        path=info['path']
+        path = info['path']
         dirs['image'] = self._get_dirs(path)
         dirs['cat'] = self._get_dirs(path, type='cat')
         dirs['aux'] = self._get_dirs(path, type='aux')
@@ -326,20 +327,20 @@ class Coadd(dict):
         return dirs
 
     def _get_dirs(self, path, type=None):
-        #local_dir = '$DESDATA/%s' % path
+        # local_dir = '$DESDATA/%s' % path
         local_dir = '%s/%s' % (self['source_dir'], path)
         remote_dir = '$DESREMOTE_RSYNC/%s' % path
 
-        #local_dir=os.path.expandvars(local_dir)
-        remote_dir=os.path.expandvars(remote_dir)
+        # local_dir=os.path.expandvars(local_dir)
+        remote_dir = os.path.expandvars(remote_dir)
 
         if type is not None:
-            local_dir=self._extract_alt_dir(local_dir,type)
-            remote_dir=self._extract_alt_dir(remote_dir,type)
+            local_dir = self._extract_alt_dir(local_dir, type)
+            remote_dir = self._extract_alt_dir(remote_dir, type)
 
         return {
-            'local_dir':local_dir,
-            'remote_dir':remote_dir,
+            'local_dir': local_dir,
+            'remote_dir': remote_dir,
         }
 
     def _extract_alt_dir(self, path, type):
@@ -355,13 +356,13 @@ class Coadd(dict):
 
         ps = path.split('/')
 
-        assert ps[-1]=='coadd'
+        assert ps[-1] == 'coadd'
 
         ps[-1] = type
         return '/'.join(ps)
 
 
-_QUERY_COADD_TEMPLATE="""
+_QUERY_COADD_TEMPLATE = """
 select
     m.tilename || '-' || m.band as key,
     m.tilename as tilename,
@@ -382,7 +383,7 @@ where
     and fai.filename=m.filename
     and fai.archive_name='desar2home'\n"""
 
-_QUERY_COADD_TEMPLATE_BYTILE="""
+_QUERY_COADD_TEMPLATE_BYTILE = """
 select
     m.tilename as tilename,
     fai.path as path,
@@ -416,22 +417,26 @@ _DOWNLOAD_CMD = r"""
 
 _OBJECT_MAP_QUERY = """
 select
-    object_number,
-    id
+    det.object_number,
+    det.id,
+    gb.mag_auto - ib.mag_auto as gi_color,
+    ib.mag_auto - zb.mag_auto as iz_color
 from
-    -- coadd_object
-    -- prod.COADD_OBJECT_SAVE
-    prod.COADD_OBJECT
+    (select * from prod.Y6A2_COADD_OBJECT_SAVE where filename = '%s') det,
+    (select * from prod.Y6A2_COADD_OBJECT_SAVE where filename = '%s') gb,
+    (select * from prod.Y6A2_COADD_OBJECT_SAVE where filename = '%s') ib,
+    (select * from prod.Y6A2_COADD_OBJECT_SAVE where filename = '%s') zb
 where
-    filename='%s'
+    det.id = gb.id
+    and det.id = ib.id
+    and det.id = zb.id
 order by
-    object_number
-"""
+    det.object_number\n"""
 
 #
 # not used
 #
-_QUERY_TEMPLATE="""
+_QUERY_TEMPLATE = """
 select
     fai.path as path,
     fai.filename as filename,

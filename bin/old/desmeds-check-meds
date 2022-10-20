@@ -68,7 +68,7 @@ def main():
             info['exit_status'] = mstat['exit_status']
 
         res.append(info)
-     
+
     json.dump(res, stdout, indent=1, separators=(',', ':'))
 
 main()
