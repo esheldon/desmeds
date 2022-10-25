@@ -161,7 +161,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             cf['srclist'][i]['ccdnum'] = int(ccdnum)
             cf['srclist'][i]['band'] = band
 
-        if 'psf_flist' in fd:
+        if 'psf_flist' in fd or 'piff_flist' in fd:
             self.psf_data = self._load_psf_data(cf)
         else:
             self.psf_data = None
@@ -279,7 +279,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         print('loading psf data')
 
         assert 'coadd_psf_url' in self.file_dict, \
-            'you must set both coadd_psf_url and psf_flist'
+            'you must set both coadd_psf_url and psf_flist or piff_flist'
 
         assert 'psf' in self, 'you must have a psf entry when loading psfs'
 
