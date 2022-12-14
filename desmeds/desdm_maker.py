@@ -1101,7 +1101,8 @@ class PIFFWrapper(dict):
         dcol = col - col_cen
         drow = row - row_cen
 
-        # now we add those offsets to the offset from the central pixel
+        # now we add those offsets to the central pixel
+        # to get the cutout location of the PSF
         # galsim rounds up for even images
         row_cutout = ((sa[0] - 1)/2 if sa[0] % 2 == 1 else sa[0]/2) + drow
         col_cutout = ((sa[1] - 1)/2 if sa[1] % 2 == 1 else sa[1]/2) + dcol
