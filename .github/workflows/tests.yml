@@ -37,4 +37,4 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/beckermr/des-test-data.git
           export TEST_DESDATA=`pwd`/des-test-data
-          pytest -vvs desmeds
+          pytest -vv desmeds
