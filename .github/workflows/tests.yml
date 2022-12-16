@@ -1,0 +1,40 @@
+name: tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request: null
+
+jobs:
+  tests:
+    name: tests
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          python-version: 3.8
+          channels: conda-forge,defaults
+          channel-priority: strict
+          show-channel-urls: true
+          miniforge-version: latest
+          miniforge-variant: Mambaforge
+
+      - name: configure conda and install code
+        shell: bash -l {0}
+        run: |
+          conda config --set always_yes yes
+          mamba install --quiet des-desmeds
+          conda uninstall des-desmeds --force --yes --quiet
+          python -m pip install -e .
+          mamba install -y -q pytest
+
+      - name: test
+        shell: bash -l {0}
+        run: |
+          git clone --depth=1 https://github.com/beckermr/des-test-data.git
+          export TEST_DESDATA=`pwd`/des-test-data
+          pytest -vv desmeds

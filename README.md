@@ -1,4 +1,6 @@
 # desmeds
+[![tests](https://github.com/esheldon/desmeds/actions/workflows/tests.yml/badge.svg)](https://github.com/esheldon/desmeds/actions/workflows/tests.yml)
+
 code specific to des MEDS production
 
 ## generating a single MEDS file
@@ -15,7 +17,7 @@ desmeds-make-meds $medsconf $coadd_run $band
 
 # You can also first make a "stubby" meds, holding information
 # required to run the MEDSMaker. This is useful because creating
-# the inputs requires network and db access, but creating the 
+# the inputs requires network and db access, but creating the
 # final file does not
 desmeds-make-stubby-meds medsconf coadd_run band
 

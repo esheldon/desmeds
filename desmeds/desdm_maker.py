@@ -1070,10 +1070,12 @@ class PIFFWrapper(dict):
         if self.ccdnum is not None:
             kwargs["chipnum"] = self.ccdnum
 
+        # draw it where the object is - drawing at center causes a bias
+        # this means center=None
         gsim = self.piff_obj.draw(
             x=col,
             y=row,
-            center=True,
+            center=None,
             stamp_size=self['stamp_size'],
             **kwargs,
         )
@@ -1088,7 +1090,28 @@ class PIFFWrapper(dict):
         get the center location
         """
         sa = np.array(self.get_rec_shape(row, col))
-        return (sa-1.0)/2.0
+
+        # this snippet is from the piff internals
+        # it returns the central pixel of the image
+        # https://github.com/rmjarvis/Piff/blob/releases/1.2/piff/psf.py#L177
+        col_cen = int(np.ceil(col - (0.5 if sa[1] % 2 == 1 else 0)))
+        row_cen = int(np.ceil(row - (0.5 if sa[0] % 2 == 1 else 0)))
+
+        # these are the offset of the PSF position from the central pixel
+        dcol = col - col_cen
+        drow = row - row_cen
+
+        # now we add those offsets to the central pixel
+        # to get the cutout location of the PSF
+        # galsim rounds up for even images
+        # these are zero-indexed
+        row_cutout = ((sa[0] - 1)/2 if sa[0] % 2 == 1 else sa[0]/2) + drow
+        col_cutout = ((sa[1] - 1)/2 if sa[1] % 2 == 1 else sa[1]/2) + dcol
+
+        return np.array([
+            row_cutout,
+            col_cutout,
+        ])
 
     def get_sigma(self):
         """
