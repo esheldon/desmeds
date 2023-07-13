@@ -9,6 +9,8 @@ import shutil
 import yaml
 
 import fitsio
+import galsim
+import esutil as eu
 
 import meds
 
@@ -96,7 +98,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         if fname is None:
             fname = self.file_dict['meds_url']
 
-        print("writing MEDS file:", fname)
+        print("writing MEDS file:", util.munge_meds_dir(fname))
 
         # this will do nothing if tmpdir is None; sf.path will
         # in fact equal fname and no move is performed
@@ -171,6 +173,29 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         self.cf = cf
         self.cf_refband = cf
 
+        if (
+            self["use_astro_refine"]
+            and len(self.psf_data) > 0
+            and cf["srclist"][0]["wcs_header"] is not None
+        ):
+            print("using atsro refine with Piff PSF solution", flush=True)
+            for i in range(len(self.psf_data)):
+                if not hasattr(self.psf_data[i], "set_wcs"):
+                    continue
+                fname = os.path.basename(self.psf_data[i]["filename"])
+                exp_band_ccd = "_".join(fname.split("_")[:3])
+                loc = None
+                for j in range(len(cf["srclist"])):
+                    if os.path.basename(
+                        cf["srclist"][j]["red_image"]
+                    ).startswith(exp_band_ccd):
+                        loc = j
+                assert loc is not None, (
+                    "Could not find image for Piff PSF file %s!" % fname
+                )
+                wcs = MyWCS(cf["srclist"][loc]["wcs_header"])
+                self.psf_data[i].set_wcs(wcs)
+
     """
     def _get_wcs(self, file_id):
         try:
@@ -194,7 +219,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         fname = self.file_dict['coadd_cat_url']
         fname = expandvars(fname)
 
-        print('reading coadd cat:', fname)
+        print('reading coadd cat:', util.munge_meds_dir(fname))
         self.coadd_cat = fitsio.read(fname, lower=True)
 
         # sort just in case, not needed ever AFIK
@@ -284,7 +309,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         assert 'psf' in self, 'you must have a psf entry when loading psfs'
 
         if 'psf_info' in self.file_dict:
-            print('loading psf info from:', self.file_dict['psf_info'])
+            print(
+                'loading psf info from:',
+                util.munge_meds_dir((self.file_dict['psf_info']))
+            )
             self.psf_info = fitsio.read(
                 self.file_dict['psf_info'], lower=True
             )
@@ -335,14 +363,14 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         load a single psfex psf
         """
         import psfex
-        print('loading psfex data:', f)
+        print('loading psfex data:', util.munge_meds_dir(f))
         return psfex.PSFEx(f)
 
     def _load_one_piff(self, f, conf, ccdnum=None, band=None):
         """
         load a single psf
         """
-        print('loading piff data:', f)
+        print('loading piff data:', util.munge_meds_dir(f))
         if band is not None:
             if band in ["g", "r", "i"]:
                 color_name = "GI_COLOR"
@@ -397,7 +425,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         read a list of file paths, one per line
         """
         fname = expandvars(self.file_dict[key])
-        print("reading:", key, 'from:', fname)
+        print("reading:", key, 'from:', util.munge_meds_dir(fname))
 
         flist = []
         with open(fname) as fobj:
@@ -451,7 +479,10 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
     def _load_src_info_fromfile(self, finalcut_flist):
         finalcut_flist = expandvars(finalcut_flist)
 
-        print('reading finalcut info from:', finalcut_flist)
+        print(
+            'reading finalcut info from:',
+            util.munge_meds_dir(finalcut_flist)
+        )
         # print('using ohead files for the wcs')
         src_info = []
 
@@ -559,7 +590,7 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
         iddata = zeros(nobj, dtype=dt)
 
         fname = expandvars(self.file_dict['coadd_object_map'])
-        print('reading id map:', fname)
+        print('reading id map:', util.munge_meds_dir(fname))
         idmap = fitsio.read(fname, lower=True)
 
         s = numpy.argsort(idmap['object_number'])
@@ -1038,7 +1069,14 @@ class PIFFWrapper(dict):
     """
     provide an interface consistent with the PSFEx class
     """
-    def __init__(self, psf_path, color_name=None, ccdnum=None, stamp_size=25):
+    def __init__(
+        self,
+        psf_path,
+        color_name=None,
+        ccdnum=None,
+        stamp_size=25,
+        wcs=None,
+    ):
 
         import piff
 
@@ -1049,6 +1087,7 @@ class PIFFWrapper(dict):
         self['rec_shape'] = (stamp_size, stamp_size)
         self.color_name = color_name
         self.ccdnum = ccdnum
+        self._wcs = wcs
 
     def get_rec_shape(self, *args, **kwargs):
         return self['rec_shape']
@@ -1070,16 +1109,39 @@ class PIFFWrapper(dict):
         if self.ccdnum is not None:
             kwargs["chipnum"] = self.ccdnum
 
-        # draw it where the object is - drawing at center causes a bias
-        # this means center=None
-        gsim = self.piff_obj.draw(
-            x=col,
-            y=row,
-            center=None,
-            stamp_size=self['stamp_size'],
-            **kwargs,
-        )
-        im = gsim.array
+        if self._wcs is not None:
+            wcs = galsim.JacobianWCS(
+                *self._wcs.get_jacobian(col, row)
+            )
+            image = galsim.ImageD(
+                ncol=self['stamp_size'],
+                nrow=self['stamp_size'],
+                wcs=wcs,
+            )
+            offset = (
+                col - int(col + 0.5),
+                row - int(row + 0.5),
+            )
+            psf_img = self.piff_obj.draw(
+                col,
+                row,
+                image=image,
+                center=True,
+                offset=offset,
+                **kwargs,
+            )
+            im = psf_img.array
+        else:
+            # draw it where the object is - drawing at center causes a bias
+            # this means center=None
+            gsim = self.piff_obj.draw(
+                x=col,
+                y=row,
+                center=None,
+                stamp_size=self['stamp_size'],
+                **kwargs,
+            )
+            im = gsim.array
 
         im *= (1.0/im.sum())
 
@@ -1119,11 +1181,17 @@ class PIFFWrapper(dict):
         """
         return np.sqrt(4.0/2.0)
 
+    def set_wcs(self, wcs):
+        self._wcs = wcs
+
     def get_wcs(self):
-        if self.ccdnum is not None:
-            return GalsimWCSWrapper(self.piff_obj.wcs[self.ccdnum])
+        if self._wcs is None:
+            if self.ccdnum is not None:
+                return GalsimWCSWrapper(self.piff_obj.wcs[self.ccdnum])
+            else:
+                return GalsimWCSWrapper(self.piff_obj.wcs[0])
         else:
-            return GalsimWCSWrapper(self.piff_obj.wcs[0])
+            return self._wcs
 
 
 # default G-I color for pixmappy
@@ -1237,3 +1305,8 @@ class GalsimWCSWrapper(object):
             return self._naxis.copy()
         else:
             None
+
+
+class MyWCS(eu.wcsutil.WCS):
+    def set_naxis(self, naxis):
+        pass

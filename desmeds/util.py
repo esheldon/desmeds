@@ -6,6 +6,12 @@ import subprocess
 DEFVAL = -9999
 IMAGE_INFO_TYPES = ['image','weight','seg','bmask','bkg']
 
+def munge_meds_dir(f):
+    if "MEDS_DIR" in os.environ:
+        return f.replace(os.environ["MEDS_DIR"], "${MEDS_DIR}")
+    else:
+        return f
+
 def fitsio_header_to_dict(hdr):
     """
     convert a fitsio FITSHDR object to a dict, for saving as
