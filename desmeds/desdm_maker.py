@@ -674,7 +674,9 @@ class DESMEDSMakerDESDM(DESMEDSMaker):
             # will then be staged out if tmpdir is not None
             # if the name is wrong, the staging will fail and
             # an exception raised
-            util.fpack_file(tfile.path)
+            util.fpack_file(
+                tfile.path, fpack_kwargs=self.get("fpack_kwargs", "")
+            )
 
 
 class Preparator(dict):

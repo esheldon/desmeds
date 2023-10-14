@@ -53,8 +53,8 @@ def check_for_required_config(conf, required):
         raise RuntimeError("there are missing required "
                            "configuration parameters: %s" % missing)
 
-def fpack_file(fname):
-    cmd='fpack %s' % fname
+def fpack_file(fname, fpack_kwargs=""):
+    cmd='fpack %s %s' % (fpack_kwargs, fname)
     print("fpacking with command: '%s'" % cmd)
     subprocess.check_call(cmd,shell=True)
 
